@@ -1,0 +1,46 @@
+name: TunierServer
+version: '${version}'
+main: me.HenRun189.tunierServer.TunierServer
+api-version: 1.21
+load: POSTWORLD
+
+commands:
+  team:
+    description: Team commands
+    usage: /team
+  game:
+    description: Game commands
+    usage: /game
+  skip:
+    description: Skip current achievement
+    usage: /skip
+  help:
+    description: Zeigt dein aktuelles Ziel
+    usage: /help
+  score:
+    description: Punkte setzen
+    usage: /score <team> <punkte>
+  bp:
+    description: Öffnet Backpack
+    usage: /bp
+    aliases: [ backpack ]
+  backpack:
+    description: Öffnet Backpack
+    usage: /backpack
+  allowmove:
+    description: Freeze Spieler
+    usage: /allowmove <player> <true/false>
+  pause:
+    description: Pause the game
+    usage: /pause
+  resume:
+    description: Resume the game
+    usage: /resume
+  stats:
+    description: Turnier Übersicht
+    usage: /stats
+  gameinfo:
+    description: Infos zu einem Spielmodus
+    usage: /gameinfo <mode>
+  statsgui:
+    description: Öffnet die Turnier GUI
