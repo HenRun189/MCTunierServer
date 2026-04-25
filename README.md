@@ -1,4 +1,4 @@
-Ja — hier ist deine saubere Checkliste mit **fertig / halb fertig / fehlt / buggy** und **welche Datei du ändern musst**. Ich habe sie nach Priorität sortiert, damit du zuerst die Sachen fixst, die Gameplay oder Fairness kaputt machen. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/45042804/60344be0-bafd-4176-abc4-c4a48f4cd8f1/GameManager.java)
+hier ist deine saubere Checkliste mit **fertig / halb fertig / fehlt / buggy** und **welche Datei du ändern musst**. Ich habe sie nach Priorität sortiert, damit du zuerst die Sachen fixst, die Gameplay oder Fairness kaputt machen. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/45042804/60344be0-bafd-4176-abc4-c4a48f4cd8f1/GameManager.java)
 
 ## Erstmal zuerst
 
@@ -129,11 +129,3 @@ Ich würde so vorgehen:
 - **3.** `ItemCollectorMode-3.java`: Team-only Chat/Sound und besseres Ende. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/45042804/d50d754c-a4e6-4624-b2b3-42bcc352acc5/ItemCollectorMode-3.java)
 - **4.** `JumpAndRunMode-4.java` nochmal: Bossbar, Endstats, Visibility-Item. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/45042804/f5b71dc1-0eb9-4d9a-8b11-39c206ae922b/JumpAndRunMode-4.java)
 - **5.** `AbstractGameMode-6.java`: generisches Finale verbessern. [ppl-ai-file-upload.s3.amazonaws](https://ppl-ai-file-upload.s3.amazonaws.com/web/direct-files/attachments/45042804/8b78e03b-2bd9-428c-9cc4-36cdea101518/AbstractGameMode-6.java)
-
-Wenn du willst, mache ich dir als Nächstes eine noch praktischere Version als **copybare Dev-Checklist** wie:
-
-- `[ ] Fix Checkpoint detection in JumpAndRunMode`
-- `[ ] Change TP cooldown from 2000ms to 1000ms`
-- `[ ] Replace Bukkit.broadcastMessage with team-only message`
-
-also direkt zum Abarbeiten.  
