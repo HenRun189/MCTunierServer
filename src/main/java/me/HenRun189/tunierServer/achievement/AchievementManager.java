@@ -48,14 +48,12 @@ public class AchievementManager {
 
             // MOVEMENT / EASY FUN
             "adventure/sleep_in_bed",    // Sweet Dreams
-            "adventure/root",            // Adventure
-            "adventure/swim_in_water",   // (Root-abhängiger Swim/Water-Advancement-Name prüfen)
+            //"adventure/root",            // Adventure
+            //"adventure/swim_in_water",   // (Root-abhängiger Swim/Water-Advancement-Name prüfen)
             //"adventure/ride_a_boat",      // (Boat-Advancement-Name prüfen)
 
 
-            "adventure/bullseye", // Zielscheibe in Mitte treffen (Redstone target)
-            "adventure/ol_betsy", // Armbrust schießen
-            "adventure/read_power_of_chiseled_bookshelf", // Bücherregal benutzen
+            //"adventure/read_power_of_chiseled_bookshelf", // Bücherregal benutzen
 
             "nether/deflect_arrow", // Not Today, Thank You → Pfeil mit Schild blocken
             "nether/distract_piglin", // Oh Shiny → Gold zu Piglin werfen
@@ -67,7 +65,7 @@ public class AchievementManager {
 
     public String getRandomAdvancement() {
         if (ADVANCEMENT_POOL.isEmpty()) {
-            return "story/mine_stone";
+            return "nether/find_fortress";
         }
 
         return ADVANCEMENT_POOL.get(random.nextInt(ADVANCEMENT_POOL.size()));

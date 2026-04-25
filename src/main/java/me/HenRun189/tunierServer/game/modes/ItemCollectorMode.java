@@ -12,9 +12,11 @@ import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
+import me.HenRun189.tunierServer.team.TeamData;
+
 import java.util.*;
 
-public class ItemCollectorMode implements GameMode, Listener {
+public class ItemCollectorMode extends AbstractGameMode implements Listener {
 
     private final ScoreManager scoreManager;
     private final TeamManager teamManager;
@@ -22,10 +24,10 @@ public class ItemCollectorMode implements GameMode, Listener {
     private final Map<String, Set<Material>> teamItems = new HashMap<>();
 
     private BossBar bossBar;
-    private int time = 900;
-    private int taskId = -1;
+
 
     public ItemCollectorMode(TeamManager teamManager, ScoreManager scoreManager) {
+        super(1200, teamManager); // 🔥 20 Minuten
         this.teamManager = teamManager;
         this.scoreManager = scoreManager;
     }
@@ -33,12 +35,9 @@ public class ItemCollectorMode implements GameMode, Listener {
     @Override
     public void start() {
 
-        stop();
-
         teamItems.clear();
-        time = 900;
 
-        bossBar = Bukkit.createBossBar("§bItem Collector", BarColor.BLUE, BarStyle.SOLID);
+        bossBar = Bukkit.createBossBar("§bItem Race", BarColor.BLUE, BarStyle.SOLID);
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             bossBar.addPlayer(p);
@@ -46,39 +45,21 @@ public class ItemCollectorMode implements GameMode, Listener {
 
         Bukkit.getPluginManager().registerEvents(this, TunierServer.getInstance());
 
-        taskId = Bukkit.getScheduler().runTaskTimer(TunierServer.getInstance(), () -> {
-
-            time--;
-
-            int minutes = time / 60;
-            int seconds = time % 60;
-            String timeString = String.format("%02d:%02d", minutes, seconds);
-
-            bossBar.setTitle("§bItems sammeln §7| §e" + timeString);
-            bossBar.setProgress(Math.max(0, time / 900.0));
-
-            if (time <= 0) stop();
-
-        }, 0, 20).getTaskId();
-
-        Bukkit.broadcastMessage("§a§lItem Collector gestartet!");
+        super.start(); // 🔥 GANZ WICHTIG
     }
 
     @Override
-    public void stop() {
+    protected void onGameTick() {
 
-        HandlerList.unregisterAll(this);
+        double maxTime = 1200.0;
 
-        if (taskId != -1) {
-            Bukkit.getScheduler().cancelTask(taskId);
-            taskId = -1;
-        }
+        int minutes = time / 60;
+        int seconds = time % 60;
 
-        if (bossBar != null) {
-            bossBar.removeAll();
-        }
+        String timeString = String.format("%02d:%02d", minutes, seconds);
 
-        Bukkit.broadcastMessage("§cGame beendet!");
+        bossBar.setTitle("§bItem Race §7| §e" + timeString);
+        bossBar.setProgress(Math.max(0, time / maxTime));
     }
 
     @EventHandler
@@ -120,6 +101,43 @@ public class ItemCollectorMode implements GameMode, Listener {
                 p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.5f);
             }
         }
+    }
+
+    @Override
+    protected List<TeamData> getRanking() {
+
+        List<TeamData> ranking = new ArrayList<>(teamManager.getTeams().values());
+
+        ranking.sort((a, b) -> Integer.compare(
+                scoreManager.getPoints(b.getName()),
+                scoreManager.getPoints(a.getName())
+        ));
+
+        return ranking;
+    }
+
+    @Override
+    public void stop() {
+        super.stop(); // 🔥 wichtig für Ranking + Titel
+
+        HandlerList.unregisterAll(this);
+
+        if (bossBar != null) {
+            bossBar.removeAll();
+        }
+    }
+
+    @Override
+    protected void onGameStart() {
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendTitle("§bItem Race", "§7Sammle Items!", 10, 60, 10);
+        }
+    }
+
+    @Override
+    protected int getPoints(String teamName) {
+        return scoreManager.getPoints(teamName);
     }
 
     @Override

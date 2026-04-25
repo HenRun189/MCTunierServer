@@ -21,6 +21,11 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.advancement.Advancement;
 import org.bukkit.advancement.AdvancementProgress;
+import org.bukkit.Location;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.boss.BossBar;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
 
 import net.kyori.adventure.text.Component;
 
@@ -37,6 +42,13 @@ public class GameManager implements Listener {
     private final Map<String, World> preparedWorlds = new HashMap<>();
     private long currentSeed;
     private boolean gameActive = false;
+    private boolean countdownRunning = false;
+    private boolean devMode = true;
+
+    private static final double JR_CENTER_X = 0.0;
+    private static final double JR_CENTER_Y = 65.0;
+    private static final double JR_CENTER_Z = 0.0;
+    private static final double JR_RADIUS = 4.0;
 
     private final Set<UUID> frozenPlayers = new HashSet<>();
 
@@ -76,6 +88,7 @@ public class GameManager implements Listener {
 
         currentMode.stop();
 
+        countdownRunning = false;
         gameActive = false;
 
         resetAllPlayers();
@@ -287,8 +300,13 @@ public class GameManager implements Listener {
                 scoreManager.setCurrentGame("Achievement Battle");
             }
             case "jumpandrun" -> {
-                currentMode = new JumpAndRunMode();
+                currentMode = new JumpAndRunMode(teamManager, scoreManager);
+
                 scoreManager.setCurrentGame("Jump and Run");
+
+                // ❗ WICHTIG: KEINE WORLDS LADEN
+                startLobbyCountdown(lower);
+                return;
             }
             case "pvp" -> {
                 currentMode = new PvPMode();
@@ -312,8 +330,16 @@ public class GameManager implements Listener {
         //teleportAllToLobby();
 
         // 🔥 120 Sekunden Lobby Countdown
-        prepareWorldsAsync();
-        startLobbyCountdown(lower);
+        if (lower.equals("jumpandrun")) {
+
+            startLobbyCountdown(lower); // nur countdown
+
+        } else {
+
+            prepareWorldsAsync();
+            startLobbyCountdown(lower);
+
+        }
     }
 
     private void startLobbyCountdown(String mode) {
@@ -328,7 +354,7 @@ public class GameManager implements Listener {
 
         new BukkitRunnable() {
 
-            int time = 120;
+            int time = devMode ? 5 : 120;
             boolean warned = false;
 
 
@@ -391,7 +417,15 @@ public class GameManager implements Listener {
 
                 if (time <= 0) {
 
+                    cancel();
 
+                    // 🔥 JumpAndRun braucht keine Worlds
+                    if (currentMode instanceof JumpAndRunMode) {
+                        prepareWorldsAndTeleport();
+                        return;
+                    }
+
+                    // 🔥 Andere Modi warten auf Worlds
                     if (preparedWorlds.size() < teamManager.getTeams().size()) {
 
                         if (!warned) {
@@ -402,7 +436,6 @@ public class GameManager implements Listener {
                         return;
                     }
 
-                    cancel();
                     prepareWorldsAndTeleport();
                     return;
                 }
@@ -414,6 +447,24 @@ public class GameManager implements Listener {
     }
 
     private void prepareWorldsAndTeleport() {
+
+        if (currentMode instanceof JumpAndRunMode) {
+
+            World world = Bukkit.getWorld("voidworld2");
+
+            if (world == null) {
+                Bukkit.broadcast(Component.text("§cJump&Run Welt nicht gefunden!"));
+                return;
+            }
+
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                Location spawn = new Location(world, JR_CENTER_X + 0.5, JR_CENTER_Y, JR_CENTER_Z + 0.5, 0f, 0f);
+                p.teleport(spawn);
+            }
+
+            startGameCountdown();
+            return;
+        }
 
         for (TeamData team : teamManager.getTeams().values()) {
 
@@ -449,6 +500,112 @@ public class GameManager implements Listener {
 
     private void startGameCountdown() {
 
+        if (countdownRunning) return;
+        countdownRunning = true;
+
+        if (currentMode instanceof JumpAndRunMode) {
+
+            new BukkitRunnable() {
+
+                int time = 5;
+                boolean redPhase = false;
+                int randomDelay = 10 + new Random().nextInt(16);
+                boolean greenTriggered = false;
+
+                BossBar bossBar = Bukkit.createBossBar(
+                        "§cBereit...",
+                        BarColor.RED,
+                        BarStyle.SOLID
+                );
+
+                {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        bossBar.addPlayer(p);
+                    }
+                }
+
+                @Override
+                public void run() {
+
+                    // =====================
+                    // ⏱ COUNTDOWN 5 → 0
+                    // =====================
+                    if (!redPhase) {
+
+                        for (Player p : Bukkit.getOnlinePlayers()) {
+                            p.sendTitle("§c" + time, "", 0, 20, 0);
+                            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        }
+
+                        bossBar.setProgress(time / 5.0);
+
+                        time--;
+
+                        if (time < 0) {
+                            redPhase = true;
+
+                            for (Player p : Bukkit.getOnlinePlayers()) {
+                                fillInventory(p, Material.RED_TERRACOTTA);
+                            }
+
+                            bossBar.setTitle("§cSTOP!");
+                            bossBar.setProgress(1.0);
+                        }
+
+                        return;
+                    }
+
+                    // =====================
+                    // 🔴 RED PHASE (random delay)
+                    // =====================
+                    if (!greenTriggered) {
+
+                        randomDelay--;
+
+                        if (randomDelay <= 0) {
+                            greenTriggered = true;
+
+                            for (Player p : Bukkit.getOnlinePlayers()) {
+
+                                // 🔥 leicht verzögert grün machen
+                                Bukkit.getScheduler().runTaskLater(
+                                        TunierServer.getInstance(),
+                                        () -> fillInventory(p, Material.LIME_TERRACOTTA),
+                                        5L // ~0.25 sek delay → fühlt sich besser an
+                                );
+
+                                //p.sendTitle("§aGO!", "", 0, 40, 10);
+                                p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+                            }
+
+                            bossBar.setColor(BarColor.GREEN);
+                            bossBar.setTitle("§aGO!");
+                            bossBar.setProgress(0);
+
+                            Bukkit.broadcast(Component.text("§aGO!"));
+                        }
+
+                        return;
+                    }
+
+                    // =====================
+                    // 🟢 START GAME
+                    // =====================
+                    gameActive = true;
+                    currentMode.start();
+                    countdownRunning = false;
+
+                    bossBar.removeAll();
+                    cancel();
+
+                }
+
+            }.runTaskTimer(TunierServer.getInstance(), 0L, 20L);
+
+            return;
+        }
+
+        // 🔽 NORMALER COUNTDOWN (dein alter bleibt)
         new BukkitRunnable() {
 
             int time = 15;
@@ -457,40 +614,27 @@ public class GameManager implements Listener {
             public void run() {
 
                 if (time == 15) {
-                    freezeAll(); // ❄️ erst im Game einfrieren
+                    freezeAll();
                 }
 
                 for (Player p : Bukkit.getOnlinePlayers()) {
 
-                    p.sendTitle(
-                            "§2" + time,
-                            "§8Spiel startet...",
-                            0, 20, 0
-                    );
-
-                    // 🔊 SOUND SYSTEM
-                    if (time == 15) {
-                        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.8f);
-                    }
+                    p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
 
                     if (time <= 10 && time > 0) {
-                        p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f + (10 - time) * 0.05f);
+                        p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
                     }
 
                     if (time == 0) {
                         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
                     }
-
-                    if (time <= 5 && time > 0) {
-                        Bukkit.broadcast(Component.text("§7Start in §e" + time + "…"));
-                    }
                 }
 
                 if (time <= 0) {
-                    unfreezeAll(); // Spieler dürfen sich bewegen
+                    unfreezeAll();
                     gameActive = true;
                     currentMode.start();
-                    //Bukkit.broadcast(Component.text("§aSpiel gestartet!"));
+                    countdownRunning = false;
                     cancel();
                     return;
                 }
@@ -516,6 +660,9 @@ public class GameManager implements Listener {
     }
 
     private void prepareWorldsAsync() {
+
+        if (currentMode instanceof JumpAndRunMode) return;
+
         preparedWorlds.clear();
 
         List<TeamData> teams = new ArrayList<>(teamManager.getTeams().values());
@@ -596,5 +743,53 @@ public class GameManager implements Listener {
 
     public boolean isGameActive() {
         return gameActive;
+    }
+
+    private void fillInventory(Player p, Material mat) {
+        ItemStack item = new ItemStack(mat);
+
+        for (int i = 0; i < 36; i++) {
+            p.getInventory().setItem(i, item);
+        }
+    }
+
+    @EventHandler
+    public void onMove(PlayerMoveEvent e) {
+        Player p = e.getPlayer();
+
+        if (isFrozen(p) && !(currentMode instanceof JumpAndRunMode)) {
+            Location from = e.getFrom();
+            Location to = e.getTo();
+            if (to == null) return;
+
+            e.setTo(new Location(
+                    from.getWorld(),
+                    from.getX(), from.getY(), from.getZ(),
+                    to.getYaw(), to.getPitch()
+            ));
+            return;
+        }
+
+        if (!(currentMode instanceof JumpAndRunMode)) return;
+        if (gameActive) return;
+        if (!p.getWorld().getName().equals("voidworld2")) return;
+
+        Location to = e.getTo();
+        if (to == null) return;
+
+        int dx = Math.abs(to.getBlockX() - (int) JR_CENTER_X);
+        int dy = Math.abs(to.getBlockY() - (int) JR_CENTER_Y);
+        int dz = Math.abs(to.getBlockZ() - (int) JR_CENTER_Z);
+
+        boolean outside = dx > JR_RADIUS || dy > 1 || dz > JR_RADIUS;
+
+        if (outside) {
+            Location from = e.getFrom();
+            e.setTo(new Location(
+                    from.getWorld(),
+                    from.getX(), from.getY(), from.getZ(),
+                    to.getYaw(), to.getPitch()
+            ));
+        }
     }
 }

@@ -28,6 +28,12 @@ import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
+import org.bukkit.World;
+import org.bukkit.Location;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.entity.Player;
+
 public class TunierServer extends JavaPlugin implements Listener {
 
     private static TunierServer instance;
@@ -139,6 +145,7 @@ public class TunierServer extends JavaPlugin implements Listener {
 
         @EventHandler
         public void onJoin(PlayerJoinEvent e) {
+            e.setJoinMessage(null);
             Player p = e.getPlayer();
 
             // Scoreboard + Team
@@ -164,7 +171,13 @@ public class TunierServer extends JavaPlugin implements Listener {
 
             p.sendMessage(twitch);
 
-            p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.5f, 1f);
+
+            World lobby = Bukkit.getWorld("lobby");
+
+            if (lobby != null) {
+                p.teleport(new Location(lobby, 2, 38, -5));
+            }
         }
     }
 
@@ -179,6 +192,8 @@ public class TunierServer extends JavaPlugin implements Listener {
             p.addPotionEffect(new PotionEffect(PotionEffectType.SATURATION, 200, 255, true, false));
         }
     }
+
+
 
     public ScoreManager getScoreManager() {
         return scoreManager;
