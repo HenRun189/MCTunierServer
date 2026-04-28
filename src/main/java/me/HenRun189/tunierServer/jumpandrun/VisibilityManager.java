@@ -16,9 +16,7 @@ public class VisibilityManager {
     }
 
     public enum Mode {
-        ALL,
-        TEAM,
-        NONE
+        ALL, TEAM, NONE
     }
 
     public void apply(Player player, Mode mode) {
@@ -30,15 +28,10 @@ public class VisibilityManager {
             if (other.equals(player)) continue;
 
             switch (mode) {
-
-                case ALL -> player.showPlayer(TunierServer.getInstance(), other);
-
+                case ALL  -> player.showPlayer(TunierServer.getInstance(), other);
                 case NONE -> player.hidePlayer(TunierServer.getInstance(), other);
-
                 case TEAM -> {
-
                     TeamData otherTeam = teamManager.getTeamByPlayer(other.getUniqueId());
-
                     if (playerTeam != null && playerTeam.equals(otherTeam)) {
                         player.showPlayer(TunierServer.getInstance(), other);
                     } else {

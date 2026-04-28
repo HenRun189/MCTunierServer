@@ -10,6 +10,7 @@ import me.HenRun189.tunierServer.listeners.MoveListener;
 import me.HenRun189.tunierServer.listeners.ChatListener;
 import me.HenRun189.tunierServer.listeners.LobbyListener;
 import me.HenRun189.tunierServer.listeners.GUIListener;
+import me.HenRun189.tunierServer.listeners.VisibilityToggleItem;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.PluginCommand;
@@ -71,6 +72,8 @@ public class TunierServer extends JavaPlugin implements Listener {
         backpackManager = new BackpackManager();
 
         gameManager = new GameManager(teamManager, scoreManager, achievementManager, backpackManager);
+
+        VisibilityToggleItem.init(); // initialises the PersistentDataContainer key
 
         // Final update
         scoreManager.updateScoreboard();

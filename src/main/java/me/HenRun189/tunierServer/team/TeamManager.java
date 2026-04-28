@@ -61,7 +61,7 @@ public class TeamManager {
         team.setColor(color);
 
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
-        team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.ALWAYS);
+        team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
 
         teams.put(name, new TeamData(name, color, prefix));
 
@@ -140,7 +140,7 @@ public class TeamManager {
             team.setColor(color);
 
             team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
-            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.ALWAYS);
+            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
         }
 
         data.setColor(color);

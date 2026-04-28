@@ -31,12 +31,12 @@ public class TeamData {
         return prefix;
     }
 
-    // ❗ FIX: unmodifiable zurückgeben (sehr wichtig)
+    //  FIX: unmodifiable zurückgeben (sehr wichtig)
     public Set<UUID> getPlayers() {
         return Collections.unmodifiableSet(players);
     }
 
-    // 🔥 interne Methoden für Manager
+    //  interne Methoden für Manager
     public void addPlayer(UUID uuid) {
         players.add(uuid);
     }

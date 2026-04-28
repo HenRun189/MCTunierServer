@@ -18,6 +18,21 @@ public class PlayerData {
 
     private final Set<Location> reachedCheckpoints = new HashSet<>();
 
+    private long startTime;
+    private long finishTime;
+
+    public void startTimer() {
+        this.startTime = System.currentTimeMillis();
+    }
+
+    public void finishTimer() {
+        this.finishTime = System.currentTimeMillis();
+    }
+
+    public long getTime() {
+        return finishTime - startTime;
+    }
+
     public Set<Location> getReachedCheckpoints() {
         return reachedCheckpoints;
     }

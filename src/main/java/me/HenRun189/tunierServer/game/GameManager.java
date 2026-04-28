@@ -45,10 +45,12 @@ public class GameManager implements Listener {
     private boolean countdownRunning = false;
     private boolean devMode = true;
 
-    private static final double JR_CENTER_X = 0.0;
-    private static final double JR_CENTER_Y = 65.0;
-    private static final double JR_CENTER_Z = 0.0;
-    private static final double JR_RADIUS = 4.0;
+    private static final int JR_MIN_X = -2;
+    private static final int JR_MAX_X = 3;
+    private static final int JR_MIN_Y = 64;
+    private static final int JR_MAX_Y = 66;
+    private static final int JR_MIN_Z = -1;
+    private static final int JR_MAX_Z = 2;
 
     private final Set<UUID> frozenPlayers = new HashSet<>();
 
@@ -329,7 +331,7 @@ public class GameManager implements Listener {
         resetAllPlayers();
         //teleportAllToLobby();
 
-        // 🔥 120 Sekunden Lobby Countdown
+        // 120 Sekunden Lobby Countdown
         if (lower.equals("jumpandrun")) {
 
             startLobbyCountdown(lower); // nur countdown
@@ -458,7 +460,7 @@ public class GameManager implements Listener {
             }
 
             for (Player p : Bukkit.getOnlinePlayers()) {
-                Location spawn = new Location(world, JR_CENTER_X + 0.5, JR_CENTER_Y, JR_CENTER_Z + 0.5, 0f, 0f);
+                Location spawn = new Location(world, 0.5, JR_MIN_Y, 0.5, 0f, 0f);
                 p.teleport(spawn);
             }
 
@@ -503,101 +505,45 @@ public class GameManager implements Listener {
         if (countdownRunning) return;
         countdownRunning = true;
 
-        if (currentMode instanceof JumpAndRunMode) {
+        if (currentMode instanceof JumpAndRunMode jnrMode) {
 
+            // Give items + enable ghost system so players can use the toggle during countdown
+            final List<Player> participants = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.getWorld().getName().equals("voidworld2")) participants.add(p);
+            }
+            jnrMode.preGame(participants);
+
+            // Identical to the normal countdown — but NO freezeAll() so players can move in the start radius
             new BukkitRunnable() {
 
-                int time = 5;
-                boolean redPhase = false;
-                int randomDelay = 10 + new Random().nextInt(16);
-                boolean greenTriggered = false;
-
-                BossBar bossBar = Bukkit.createBossBar(
-                        "§cBereit...",
-                        BarColor.RED,
-                        BarStyle.SOLID
-                );
-
-                {
-                    for (Player p : Bukkit.getOnlinePlayers()) {
-                        bossBar.addPlayer(p);
-                    }
-                }
+                int time = 15;
 
                 @Override
                 public void run() {
 
-                    // =====================
-                    // ⏱ COUNTDOWN 5 → 0
-                    // =====================
-                    if (!redPhase) {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
 
-                        for (Player p : Bukkit.getOnlinePlayers()) {
-                            p.sendTitle("§c" + time, "", 0, 20, 0);
+                        p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+
+                        if (time <= 10 && time > 0) {
                             p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
                         }
 
-                        bossBar.setProgress(time / 5.0);
-
-                        time--;
-
-                        if (time < 0) {
-                            redPhase = true;
-
-                            for (Player p : Bukkit.getOnlinePlayers()) {
-                                fillInventory(p, Material.RED_TERRACOTTA);
-                            }
-
-                            bossBar.setTitle("§cSTOP!");
-                            bossBar.setProgress(1.0);
+                        if (time == 0) {
+                            p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
                         }
+                    }
 
+                    if (time <= 0) {
+                        gameActive = true;
+                        currentMode.start();
+                        countdownRunning = false;
+                        cancel();
                         return;
                     }
 
-                    // =====================
-                    // 🔴 RED PHASE (random delay)
-                    // =====================
-                    if (!greenTriggered) {
-
-                        randomDelay--;
-
-                        if (randomDelay <= 0) {
-                            greenTriggered = true;
-
-                            for (Player p : Bukkit.getOnlinePlayers()) {
-
-                                // 🔥 leicht verzögert grün machen
-                                Bukkit.getScheduler().runTaskLater(
-                                        TunierServer.getInstance(),
-                                        () -> fillInventory(p, Material.LIME_TERRACOTTA),
-                                        5L // ~0.25 sek delay → fühlt sich besser an
-                                );
-
-                                //p.sendTitle("§aGO!", "", 0, 40, 10);
-                                p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
-                            }
-
-                            bossBar.setColor(BarColor.GREEN);
-                            bossBar.setTitle("§aGO!");
-                            bossBar.setProgress(0);
-
-                            Bukkit.broadcast(Component.text("§aGO!"));
-                        }
-
-                        return;
-                    }
-
-                    // =====================
-                    // 🟢 START GAME
-                    // =====================
-                    gameActive = true;
-                    currentMode.start();
-                    countdownRunning = false;
-
-                    bossBar.removeAll();
-                    cancel();
-
+                    time--;
                 }
 
             }.runTaskTimer(TunierServer.getInstance(), 0L, 20L);
@@ -777,11 +723,13 @@ public class GameManager implements Listener {
         Location to = e.getTo();
         if (to == null) return;
 
-        int dx = Math.abs(to.getBlockX() - (int) JR_CENTER_X);
-        int dy = Math.abs(to.getBlockY() - (int) JR_CENTER_Y);
-        int dz = Math.abs(to.getBlockZ() - (int) JR_CENTER_Z);
+        int bx = to.getBlockX();
+        int by = to.getBlockY();
+        int bz = to.getBlockZ();
 
-        boolean outside = dx > JR_RADIUS || dy > 1 || dz > JR_RADIUS;
+        boolean outside = bx < JR_MIN_X || bx > JR_MAX_X
+                || by < JR_MIN_Y || by > JR_MAX_Y
+                || bz < JR_MIN_Z || bz > JR_MAX_Z;
 
         if (outside) {
             Location from = e.getFrom();

@@ -1,6 +1,8 @@
 package me.HenRun189.tunierServer.game.modes;
 
+import me.HenRun189.tunierServer.jumpandrun.JnRVisibilityManager;
 import me.HenRun189.tunierServer.jumpandrun.PlayerData;
+import me.HenRun189.tunierServer.listeners.VisibilityToggleItem;
 import me.HenRun189.tunierServer.score.ScoreManager;
 import me.HenRun189.tunierServer.team.*;
 import me.HenRun189.tunierServer.TunierServer;
@@ -13,8 +15,6 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.scoreboard.Scoreboard;
-import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.event.block.Action;
@@ -23,6 +23,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.player.PlayerQuitEvent;
 
 import net.kyori.adventure.text.Component;
 
@@ -34,6 +35,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
     private final TeamManager teamManager;
     private final ScoreManager scoreManager;
+    private final JnRVisibilityManager visibilityManager;
 
     private final Map<UUID, PlayerData> data = new HashMap<>();
 
@@ -53,79 +55,114 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
     private final Map<UUID, BukkitRunnable> cooldownTasks = new HashMap<>();
     private final HashMap<UUID, Integer> rankings = new HashMap<>();
 
+    private int activePlayerAmount = 0;
+    private boolean registered = false; // prevents double listener registration
+
+    private String formatTime(long ms) {
+        long seconds = ms / 1000;
+        long millis = (ms % 1000) / 10;
+
+        return seconds + "." + millis + "s";
+    }
+
     public JumpAndRunMode(TeamManager teamManager, ScoreManager scoreManager) {
         super(600, teamManager); // 10 Minuten
         this.teamManager = teamManager;
         this.scoreManager = scoreManager;
+        this.visibilityManager = new JnRVisibilityManager(teamManager);
+    }
+
+    // ==========================================
+    // PRE-GAME — called by GameManager BEFORE start(), during the 15-sec countdown
+    // ==========================================
+
+    public void preGame(Collection<Player> players) {
+        // Populate data now so drop/inventory handlers protect items during countdown
+        for (Player p : players) {
+            data.put(p.getUniqueId(), new PlayerData(p.getUniqueId()));
+
+            p.getInventory().clear();
+
+            ItemStack blazeRod = new ItemStack(Material.BLAZE_ROD);
+            ItemMeta meta = blazeRod.getItemMeta();
+            meta.setDisplayName("§cZum Checkpoint teleportieren");
+            blazeRod.setItemMeta(meta);
+            p.getInventory().setItem(0, blazeRod); // locked during countdown (gameStarted = false)
+        }
+
+        // Ghost + no collision + transparency + toggle item
+        visibilityManager.enable(players);
+        for (Player p : players) {
+            p.getInventory().setItem(JnRVisibilityManager.TOGGLE_SLOT,
+                    VisibilityToggleItem.create(JnRVisibilityManager.Mode.GHOST));
+        }
+
+        // Register events early so drop/inventory blocks work
+        if (!registered) {
+            Bukkit.getPluginManager().registerEvents(this, TunierServer.getInstance());
+            registered = true;
+        }
     }
 
     @Override
     public void start() {
 
+        // data already populated in preGame — clear to reset fall counters (no falls happened yet)
         data.clear();
         gameStarted = false;
         lastUse.clear();
         cooldownTasks.clear();
+        activePlayerAmount = 0;
 
         for (TeamData team : teamManager.getTeams().values()) {
             for (UUID uuid : team.getPlayers()) {
                 Player p = Bukkit.getPlayer(uuid);
                 if (p == null) continue;
-
                 data.put(p.getUniqueId(), new PlayerData(p.getUniqueId()));
+                activePlayerAmount++;
             }
         }
 
-        Bukkit.getPluginManager().registerEvents(this, TunierServer.getInstance());
+        // Avoid double registration if preGame already registered
+        if (!registered) {
+            Bukkit.getPluginManager().registerEvents(this, TunierServer.getInstance());
+            registered = true;
+        }
+
         super.start();
     }
+
+    private Location startLocation;
 
     @Override
     protected void onGameStart() {
 
-        Random r = new Random();
+        World world = Bukkit.getWorld(WORLD_NAME);
+        if (world == null) return;
 
-        for (Player p : Bukkit.getOnlinePlayers()) {
+        startLocation = new Location(world, 0.5, 65, 0.5, 0f, 0f);
 
-            if (!p.getWorld().getName().equals(WORLD_NAME)) continue;
+        world.getChunkAt(startLocation).load(true);
 
-            double x = MIN_X + (Math.random() * (MAX_X - MIN_X));
-            double z = MIN_Z + (Math.random() * (MAX_Z - MIN_Z));
+        Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
 
-            Location spawn = new Location(p.getWorld(), x, 65, z);
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (!p.getWorld().equals(world)) continue;
 
-            p.teleport(spawn);
-        }
+                p.teleport(startLocation.clone());
+                p.setVelocity(new Vector(0,0,0));
+                p.setFallDistance(0);
 
-        gameStarted = true; // 🔥 GANZ WICHTIG
+                // ✅ FIX
+                PlayerData pd = data.get(p.getUniqueId());
+                if (pd != null) {
+                    pd.startTimer();
+                }
+            }
 
-        for (Player p : Bukkit.getOnlinePlayers()) {
+            gameStarted = true;
 
-            if (!p.getWorld().getName().equals(WORLD_NAME)) continue;
-
-            p.getInventory().clear();
-
-            ItemStack resetItem = new ItemStack(Material.BLAZE_ROD);
-            ItemMeta meta = resetItem.getItemMeta();
-            meta.setDisplayName("§cZum Checkpoint teleportieren");
-            resetItem.setItemMeta(meta);
-
-            p.getInventory().setItem(0, resetItem);
-
-            //p.sendTitle("§aGO!", "§7Jump and Run", 10, 40, 10);
-        }
-
-        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
-        Team collisionTeam = board.getTeam("no_collision");
-
-        if (collisionTeam == null) {
-            collisionTeam = board.registerNewTeam("no_collision");
-            collisionTeam.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
-        }
-
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            collisionTeam.addEntry(p.getName());
-        }
+        }, 1L);
     }
 
     @Override
@@ -133,7 +170,8 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
         for (Player p : Bukkit.getOnlinePlayers()) {
 
-            if (!p.getWorld().getName().equals(WORLD_NAME)) continue;
+            World world = Bukkit.getWorld(WORLD_NAME);
+            if (!p.getWorld().equals(world)) continue;
 
             PlayerData pd = data.get(p.getUniqueId());
             if (pd == null) continue;
@@ -151,9 +189,19 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
                     "§e#" + place + " §8| §cFalls: " + pd.getFalls()
             ));
         }
+        if (activePlayerAmount <= 0 || rankings.size() >= activePlayerAmount) {
+            showEndRanking();
+            stop();
+        }
     }
 
     private void resetPlayer(Player p, PlayerData pd) {
+
+        p.setInvulnerable(true);
+
+        Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
+            p.setInvulnerable(false);
+        }, 10L);
 
         World world = Bukkit.getWorld(WORLD_NAME);
         if (world == null) return;
@@ -162,7 +210,9 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
             p.setVelocity(new Vector(0, 0, 0));
             p.teleport(pd.getLastCheckpoint());
         } else {
-            Location start = new Location(world, 0.5, 65, 0.5);
+            Location start = startLocation != null
+                    ? startLocation.clone()
+                    : new Location(world, 0.5, 65, 0.5);
             p.setVelocity(new Vector(0, 0, 0));
             p.teleport(start);
         }
@@ -275,34 +325,51 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
 
     protected void finished(Player p) {
-        rankings.put(p.getUniqueId(), rankings.size() + 1);
-
+        int place = rankings.size() + 1;
+        rankings.put(p.getUniqueId(), place);
         p.setGameMode(GameMode.SPECTATOR);
-        p.sendTitle("§aZiel erreicht", "§Dein Platz #" + rankings.get(p.getUniqueId()), 10, 40, 10);
+        visibilityManager.setSpectatorMode(p);
+
+// optional aber sauber:
+        data.remove(p.getUniqueId());
+
+        PlayerData pd = data.get(p.getUniqueId());
+
+        long time = 0;
+        if (pd != null) {
+            pd.finishTimer();
+            time = pd.getTime();
+        }
+
+        p.sendTitle(
+                "§a✔ Ziel erreicht",
+                "§7Platz §e#" + place +
+                        " §8| §a" + formatTime(time),
+                10, 50, 10
+        );
         p.playSound(p.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
 
         TeamData team = teamManager.getTeamByPlayer(p.getUniqueId());
         if (team != null) {
 
-            if (rankings.get(p.getUniqueId()) == 1) {
+            if (place == 1) {
                 scoreManager.addPoints(team.getName(), 30 + 10);
                 Bukkit.broadcastMessage("§6🏆 §e" + p.getName() + " §7hat das Ziel als §c§l1. §7erreicht!");
             }
 
-            else if (rankings.get(p.getUniqueId()) == 2) {
-                scoreManager.addPoints(team.getName(), 15 + 10);
+            else if (place == 2){
+                scoreManager.addPoints(team.getName(), 25);
                 Bukkit.broadcastMessage("§e" + p.getName() + " §7hat das Ziel als §c§l2. §7erreicht!");
-
             }
 
-            else if (rankings.get(p.getUniqueId()) == 3) {
+            else if (place == 3) {
                 scoreManager.addPoints(team.getName(), 5 + 10);
                 Bukkit.broadcastMessage("§e" + p.getName() + " §7hat das Ziel als §c§l3. §7erreicht!");
             }
 
             else {
                 scoreManager.addPoints(team.getName(), 10 );
-                Bukkit.broadcastMessage("§b" + p.getName() + " §7hat das Ziel erreicht! §8| §ePlatz: §c#" + rankings.get(p.getUniqueId()));
+                Bukkit.broadcastMessage("§b" + p.getName() + " §7hat das Ziel erreicht! §8| §ePlatz: §c#" + place);
             }
         }
     }
@@ -330,7 +397,13 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         if (!"§cZum Checkpoint teleportieren".equals(meta.getDisplayName())) return;
 
         PlayerData pd = data.get(p.getUniqueId());
-        if (pd == null) return;
+        long time = pd != null ? pd.getTime() : 0;
+
+        // Locked during the pre-game countdown
+        if (!gameStarted) {
+            p.sendActionBar(Component.text("§cSpiel startet gleich..."));
+            return;
+        }
 
         long now = System.currentTimeMillis();
 
@@ -439,20 +512,16 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
             }
         }
 
+        visibilityManager.disable();
+
         super.stop();
 
         HandlerList.unregisterAll(this);
-
-        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
-        Team team = board.getTeam("no_collision");
-
-        if (team != null) {
-            for (String entry : new HashSet<>(team.getEntries())) {
-                team.removeEntry(entry);
-            }
-        }
+        registered = false;
 
         data.clear();
+        rankings.clear();
+        activePlayerAmount = 0;
     }
 
     @EventHandler
@@ -568,4 +637,45 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         }
     }
 
+    private void showEndRanking() {
+
+        List<Map.Entry<UUID, Integer>> sorted = new ArrayList<>(rankings.entrySet());
+        sorted.sort(Map.Entry.comparingByValue());
+
+        Bukkit.broadcast(Component.text("§6§lJump & Run Ergebnisse"));
+
+        int i = 1;
+
+        for (Map.Entry<UUID, Integer> entry : sorted) {
+
+            Player p = Bukkit.getPlayer(entry.getKey());
+            if (p == null) continue;
+
+            PlayerData pd = data.get(p.getUniqueId());
+            long time = pd.getTime();
+
+            String formatted = formatTime(time);
+
+            Bukkit.broadcast(Component.text(
+                    "§e#" + i + " §f" + p.getName() + " §8- §a" + formatted
+            ));
+
+            i++;
+        }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent e) {
+        UUID uuid = e.getPlayer().getUniqueId();
+
+        data.remove(uuid);
+        rankings.remove(uuid);
+
+        cooldownTasks.computeIfPresent(uuid, (u, task) -> {
+            task.cancel();
+            return null;
+        });
+
+        activePlayerAmount--;
+    }
 }
