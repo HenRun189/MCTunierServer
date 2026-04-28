@@ -4,8 +4,11 @@ import org.bukkit.Location;
 import java.util.UUID;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.ArrayList;
 
 public class PlayerData {
+
+    private ArrayList<Location> checkpoints = new ArrayList<>();
 
     private final UUID uuid;
 
@@ -45,6 +48,10 @@ public class PlayerData {
 
     public Location getLastCheckpoint() {
         return lastCheckpoint;
+    }
+
+    public ArrayList<Location> getCheckpoints() {
+        return checkpoints;
     }
 
     public void setLastCheckpoint(Location lastCheckpoint) {

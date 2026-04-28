@@ -51,6 +51,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
     private final Map<UUID, Long> lastUse = new HashMap<>();
     private final Map<UUID, BukkitRunnable> cooldownTasks = new HashMap<>();
+    private final HashMap<UUID, Integer> rankings = new HashMap<>();
 
     public JumpAndRunMode(TeamManager teamManager, ScoreManager scoreManager) {
         super(600, teamManager); // 10 Minuten
@@ -138,7 +139,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
             if (pd == null) continue;
 
             // ⬇️ FALL SYSTEM
-            if (p.getLocation().getY() < 57) {
+            if (p.getLocation().getY() < 57 && p.getGameMode() != GameMode.SPECTATOR) {
                 resetPlayer(p, pd);
                 p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
             }
@@ -202,6 +203,8 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
         }
 
+
+
         // =========================
         // 🏁 CHECKPOINT SYSTEM
         // =========================
@@ -210,9 +213,19 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
         if (to == null) return;
 
-// Blöcke unter dem Spieler
+        // Blöcke unter dem Spieler
         Block fromBelow = from.clone().subtract(0, 1, 0).getBlock();
         Block toBelow = to.clone().subtract(0, 1, 0).getBlock();
+
+
+        //und nur wenn man Survivel oder Adavter
+        if (p.getGameMode() == GameMode.CREATIVE || p.getGameMode() == GameMode.SPECTATOR ) return;
+
+        // 🏁 Ziel erreicht (Dia block) 🏁
+        if (toBelow.getType() == Material.DIAMOND_BLOCK && !rankings.containsKey(p.getUniqueId())) {
+            finished(p);
+        }
+
 
         // nur wenn man NEU auf eine Checkpoint-Plate draufläuft
         if (toBelow.getType() != Material.GOLD_BLOCK) return;
@@ -222,16 +235,23 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         Location checkLoc = cpLoc.clone().add(0.5, 1, 0.5);
 
         // Anti-Farm Check (dein bestehender) bleibt, aber erhöhe den Radius!
-        if (pd.getLastCheckpoint() != null) {
-            Location last = pd.getLastCheckpoint();
+        // Anti-Farm Check
 
-            if (last.getWorld() != null
-                    && checkLoc.getWorld() != null
-                    && last.getWorld().equals(checkLoc.getWorld())
-                    && last.distanceSquared(checkLoc) < 100) { // <-- war 2.25, jetzt 100 (= 10 Blöcke Radius)
-                return;
+        if (pd.getLastCheckpoint() != null) {
+            for (int l = 0; l < pd.getCheckpoints().size(); l++) {
+
+                Location last = pd.getCheckpoints().get(l);
+
+                if (last.getWorld() != null
+                        && checkLoc.getWorld() != null
+                        && last.getWorld().equals(checkLoc.getWorld())
+                        && last.distanceSquared(checkLoc) < 100) {
+                    return;
+                }
             }
+
         }
+        pd.getCheckpoints().add(cpLoc);
 
         // Checkpoint setzen
         int next = pd.getCheckpoint() + 1;
@@ -252,6 +272,41 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         p.sendActionBar(Component.text("§aCheckpoint §e#" + next));
 
     }
+
+
+    protected void finished(Player p) {
+        rankings.put(p.getUniqueId(), rankings.size() + 1);
+
+        p.setGameMode(GameMode.SPECTATOR);
+        p.sendTitle("§aZiel erreicht", "§Dein Platz #" + rankings.get(p.getUniqueId()), 10, 40, 10);
+        p.playSound(p.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+
+        TeamData team = teamManager.getTeamByPlayer(p.getUniqueId());
+        if (team != null) {
+
+            if (rankings.get(p.getUniqueId()) == 1) {
+                scoreManager.addPoints(team.getName(), 30 + 10);
+                Bukkit.broadcastMessage("§6🏆 §e" + p.getName() + " §7hat das Ziel als §c§l1. §7erreicht!");
+            }
+
+            else if (rankings.get(p.getUniqueId()) == 2) {
+                scoreManager.addPoints(team.getName(), 15 + 10);
+                Bukkit.broadcastMessage("§e" + p.getName() + " §7hat das Ziel als §c§l2. §7erreicht!");
+
+            }
+
+            else if (rankings.get(p.getUniqueId()) == 3) {
+                scoreManager.addPoints(team.getName(), 5 + 10);
+                Bukkit.broadcastMessage("§e" + p.getName() + " §7hat das Ziel als §c§l3. §7erreicht!");
+            }
+
+            else {
+                scoreManager.addPoints(team.getName(), 10 );
+                Bukkit.broadcastMessage("§b" + p.getName() + " §7hat das Ziel erreicht! §8| §ePlatz: §c#" + rankings.get(p.getUniqueId()));
+            }
+        }
+    }
+
 
 
     @EventHandler
@@ -449,14 +504,14 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
         BukkitRunnable task = new BukkitRunnable() {
 
-            double time = 2.0;
+            double time = 1.0;
 
             @Override
             public void run() {
 
                 time -= 0.05;
 
-                float progress = (float) (time / 2.0);
+                float progress = (float) (time / 1.0);
 
                 p.setExp(Math.max(0, progress));
                 p.setLevel((int) Math.ceil(time));
@@ -464,7 +519,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
                 if (time <= 0) {
                     p.setExp(0);
                     p.setLevel(0);
-                    p.sendActionBar(Component.text("§eTeleport bereit"));
+                    //p.sendActionBar(Component.text("§eTeleport bereit"));
                     cancel();
                     cooldownTasks.remove(p.getUniqueId()); // 🔥 wichtig
                 }

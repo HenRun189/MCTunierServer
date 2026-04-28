@@ -408,7 +408,7 @@ public class GameManager implements Listener {
                     }
                 }
 
-                if (time == 5 || (time <= 3 && time > 0)) {
+                if (time <= 5 && time > 0) {
                     Bukkit.broadcast(Component.text("§7Teleport in §e" + time + " Sekunden!"));
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.5f);
