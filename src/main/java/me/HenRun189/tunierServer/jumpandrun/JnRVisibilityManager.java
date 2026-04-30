@@ -18,57 +18,47 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class JnRVisibilityManager implements Listener {
 
     public enum Mode { GHOST, TEAM, HIDDEN }
 
-    public static final int TOGGLE_SLOT = 1; // Hotbar-Slot 2
+    public static final int TOGGLE_SLOT = 1;
 
     private static final String NO_COLLIDE_TEAM = "jnr_nocollide";
 
     private final TeamManager teamManager;
-
-    // UUID → Mode; players removed from this map are spectators
     private final Map<UUID, Mode> modes = new HashMap<>();
     private boolean active = false;
+
+    private Scoreboard jnrBoard = null;
+
+    // Caster/Mods die IMMER alle sehen sollen
+    private final Set<UUID> spectators = new HashSet<>();
 
     public JnRVisibilityManager(TeamManager teamManager) {
         this.teamManager = teamManager;
     }
 
-    // ==========================================
-    // LIFECYCLE
-    // ==========================================
-
-    /** Called once all participants are in the world (preGame phase). */
     public void enable(Collection<Player> players) {
         active = true;
-
         setupNoCollisionTeam(players);
 
         for (Player p : players) {
             modes.put(p.getUniqueId(), Mode.GHOST);
-            p.setGlowing(false); // glow is managed per-mode via setMode()
+            p.setGlowing(false);
             p.setInvulnerable(true);
-            applyTransparency(p); // slight ghost transparency via INVISIBILITY
+            // KEIN INVISIBILITY POTION mehr!
         }
 
         refreshAll();
         Bukkit.getPluginManager().registerEvents(this, TunierServer.getInstance());
     }
 
-    /** Called in JumpAndRunMode.stop(). Fully resets all affected players. */
     public void disable() {
         active = false;
         HandlerList.unregisterAll(this);
@@ -76,59 +66,76 @@ public class JnRVisibilityManager implements Listener {
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.setGlowing(false);
             p.setInvulnerable(false);
-            removeTransparency(p);
 
-            // Remove toggle item if still in the slot
             if (VisibilityToggleItem.isToggleItem(p.getInventory().getItem(TOGGLE_SLOT))) {
                 p.getInventory().setItem(TOGGLE_SLOT, null);
             }
 
-            // Restore full visibility
+            // Alle wieder sichtbar machen
             for (Player other : Bukkit.getOnlinePlayers()) {
                 if (!p.equals(other)) p.showPlayer(TunierServer.getInstance(), other);
             }
         }
 
-        // Clear no-collision team entries
-        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
-        Team team = board.getTeam(NO_COLLIDE_TEAM);
-        if (team != null) {
-            for (String entry : new HashSet<>(team.getEntries())) {
-                team.removeEntry(entry);
-            }
+        if (jnrBoard != null) {
+            jnrBoard = null;
         }
 
         modes.clear();
+
+        // Haupt-Scoreboard wiederherstellen + Tab-Farben
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+        }
+        TunierServer.getInstance().getTeamManager().reapplyAllTeams();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            TunierServer.getInstance().getTeamManager().applyTeamToPlayer(p);
+        }
+
+        spectators.clear();
     }
 
-    /**
-     * Called when a player finishes (steps on diamond block → SPECTATOR).
-     * Removes them from the toggle cycle and forces them to see everyone.
-     */
     public void setSpectatorMode(Player spectator) {
-        // Remove from active modes so toggle does nothing
         modes.remove(spectator.getUniqueId());
+        spectators.add(spectator.getUniqueId());
 
         spectator.setGlowing(false);
-        removeTransparency(spectator);
 
-        // Remove toggle item — spectators don't need it
         if (VisibilityToggleItem.isToggleItem(spectator.getInventory().getItem(TOGGLE_SLOT))) {
             spectator.getInventory().setItem(TOGGLE_SLOT, null);
         }
 
-        // Force-show every active participant to this spectator
+        // Spectator sieht alle
         for (Player p : Bukkit.getOnlinePlayers()) {
             spectator.showPlayer(TunierServer.getInstance(), p);
         }
+
+        // Alle sehen den Spectator normal
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (!p.equals(spectator)) {
+                p.showPlayer(TunierServer.getInstance(), spectator);
+            }
+        }
     }
 
-    public boolean isActive() {
-        return active;
+    /**
+     * Spieler der KEIN Teilnehmer ist (Caster, Mod, Zuschauer von außen)
+     * sieht immer alle und ist für alle sichtbar.
+     */
+    public void registerExternalSpectator(Player p) {
+        spectators.add(p.getUniqueId());
+        // Spectator sieht alle
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            p.showPlayer(TunierServer.getInstance(), other);
+            // Alle sehen den Spectator
+            other.showPlayer(TunierServer.getInstance(), p);
+        }
     }
+
+    public boolean isActive() { return active; }
 
     // ==========================================
-    // TOGGLE ITEM — right-click cycles GHOST → TEAM → HIDDEN → GHOST
+    // TOGGLE ITEM
     // ==========================================
 
     @EventHandler
@@ -138,7 +145,7 @@ public class JnRVisibilityManager implements Listener {
         if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         Player p = e.getPlayer();
-        if (!modes.containsKey(p.getUniqueId())) return; // spectator → ignore
+        if (!modes.containsKey(p.getUniqueId())) return;
         if (!VisibilityToggleItem.isToggleItem(p.getInventory().getItemInMainHand())) return;
 
         e.setCancelled(true);
@@ -164,25 +171,17 @@ public class JnRVisibilityManager implements Listener {
         });
     }
 
-    // ==========================================
-    // NO INTERACTION
-    // ==========================================
-
     @EventHandler
     public void onDamage(EntityDamageByEntityEvent e) {
         if (!active) return;
-        if (e.getDamager() instanceof Player && e.getEntity() instanceof Player) {
-            e.setCancelled(true);
-        }
+        if (e.getDamager() instanceof Player && e.getEntity() instanceof Player) e.setCancelled(true);
     }
 
     @EventHandler
     public void onInteractEntity(PlayerInteractEntityEvent e) {
         if (!active) return;
         if (!modes.containsKey(e.getPlayer().getUniqueId())) return;
-        if (e.getRightClicked() instanceof Player) {
-            e.setCancelled(true);
-        }
+        if (e.getRightClicked() instanceof Player) e.setCancelled(true);
     }
 
     // ==========================================
@@ -191,8 +190,6 @@ public class JnRVisibilityManager implements Listener {
 
     public void setMode(Player player, Mode mode) {
         modes.put(player.getUniqueId(), mode);
-        // TEAM mode: player glows in team color so visible teammates stand out
-        // GHOST / HIDDEN: no glow, just the INVISIBILITY transparency
         player.setGlowing(mode == Mode.TEAM);
         applyFor(player);
         player.getInventory().setItem(TOGGLE_SLOT, VisibilityToggleItem.create(mode));
@@ -202,15 +199,18 @@ public class JnRVisibilityManager implements Listener {
         return modes.getOrDefault(player.getUniqueId(), Mode.GHOST);
     }
 
-    /** Applies what `viewer` sees, based on their personal mode. */
     private void applyFor(Player viewer) {
+        // Externe Spectators / Caster sehen immer alle → skip
+        if (spectators.contains(viewer.getUniqueId())) return;
+
         Mode mode = modes.getOrDefault(viewer.getUniqueId(), Mode.GHOST);
         TeamData viewerTeam = teamManager.getTeamByPlayer(viewer.getUniqueId());
 
         for (Player target : Bukkit.getOnlinePlayers()) {
             if (target.equals(viewer)) continue;
-            // Skip players who are spectators (not in modes map) — spectators always visible to viewer
-            if (!modes.containsKey(target.getUniqueId())) {
+
+            // Spectators (Caster/Mods/Finished) immer anzeigen
+            if (spectators.contains(target.getUniqueId()) || !modes.containsKey(target.getUniqueId())) {
                 viewer.showPlayer(TunierServer.getInstance(), target);
                 continue;
             }
@@ -230,44 +230,50 @@ public class JnRVisibilityManager implements Listener {
 
     private void refreshAll() {
         for (Player p : Bukkit.getOnlinePlayers()) {
-            if (modes.containsKey(p.getUniqueId())) applyFor(p);
+            if (spectators.contains(p.getUniqueId())) {
+                // Spectator sieht alle, alle sehen Spectator
+                //registerExternalSpectator(p);                         -------------------------------
+            } else if (modes.containsKey(p.getUniqueId())) {
+                applyFor(p);
+            }
         }
     }
-
-    // ==========================================
-    // TRANSPARENCY — slight ghost look (no particles, no icon)
-    // ==========================================
-
-    private void applyTransparency(Player p) {
-        p.addPotionEffect(new PotionEffect(
-                PotionEffectType.INVISIBILITY,
-                Integer.MAX_VALUE,
-                0,
-                false, // ambient
-                false, // particles
-                false  // icon
-        ));
-    }
-
-    private void removeTransparency(Player p) {
-        p.removePotionEffect(PotionEffectType.INVISIBILITY);
-    }
-
-    // ==========================================
-    // NO COLLISION
-    // ==========================================
 
     private void setupNoCollisionTeam(Collection<Player> players) {
-        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
-        Team team = board.getTeam(NO_COLLIDE_TEAM);
-
-        if (team == null) {
-            team = board.registerNewTeam(NO_COLLIDE_TEAM);
-            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
-        }
+        jnrBoard = Bukkit.getScoreboardManager().getNewScoreboard();
+        Team team = jnrBoard.registerNewTeam(NO_COLLIDE_TEAM);
+        team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
 
         for (Player p : players) {
-            if (!team.hasEntry(p.getName())) team.addEntry(p.getName());
+            team.addEntry(p.getName());
+            p.setScoreboard(jnrBoard);
         }
+    }
+
+    public void onPlayerRejoin(Player p) {
+        if (!active) return;
+
+        // Ist kein Teilnehmer (kein Team) → als externer Spectator behandeln
+        if (teamManager.getTeamByPlayer(p.getUniqueId()) == null) {
+            registerExternalSpectator(p);
+            return;
+        }
+
+        setMode(p, Mode.GHOST);
+        p.setInvulnerable(true);
+
+        if (jnrBoard != null) {
+            Team team = jnrBoard.getTeam(NO_COLLIDE_TEAM);
+            if (team != null && !team.hasEntry(p.getName())) {
+                team.addEntry(p.getName());
+            }
+            p.setScoreboard(jnrBoard);
+        }
+
+        refreshAll();
+    }
+
+    public boolean isKnownSpectator(Player p) {
+        return spectators.contains(p.getUniqueId());
     }
 }

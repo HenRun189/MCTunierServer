@@ -9,67 +9,34 @@ import java.util.ArrayList;
 public class PlayerData {
 
     private ArrayList<Location> checkpoints = new ArrayList<>();
-
     private final UUID uuid;
-
     private int checkpoint = 0;
     private int falls = 0;
     private Location lastCheckpoint;
-
     private final Set<Location> reachedCheckpoints = new HashSet<>();
-
     private long startTime;
     private long finishTime;
-
-    public void startTimer() {
-        this.startTime = System.currentTimeMillis();
-    }
-
-    public void finishTimer() {
-        this.finishTime = System.currentTimeMillis();
-    }
-
-    public long getTime() {
-        return finishTime - startTime;
-    }
-
-    public Set<Location> getReachedCheckpoints() {
-        return reachedCheckpoints;
-    }
+    private boolean disconnected = false; // NEU
 
     public PlayerData(UUID uuid) {
         this.uuid = uuid;
     }
 
-    public int getCheckpoint() {
-        return checkpoint;
-    }
+    public void startTimer()  { this.startTime  = System.currentTimeMillis(); }
+    public void finishTimer() { this.finishTime = System.currentTimeMillis(); }
+    public long getTime()     { return finishTime - startTime; }
+    public long getFinishTime() { return finishTime; } // NEU
 
-    public void setCheckpoint(int checkpoint) {
-        this.checkpoint = checkpoint;
-    }
+    public boolean isDisconnected()            { return disconnected; }       // NEU
+    public void setDisconnected(boolean val)   { this.disconnected = val; }   // NEU
 
-    public int getFalls() {
-        return falls;
-    }
-
-    public void addFall() {
-        this.falls++;
-    }
-
-    public UUID getUuid() {
-        return uuid;
-    }
-
-    public Location getLastCheckpoint() {
-        return lastCheckpoint;
-    }
-
-    public ArrayList<Location> getCheckpoints() {
-        return checkpoints;
-    }
-
-    public void setLastCheckpoint(Location lastCheckpoint) {
-        this.lastCheckpoint = lastCheckpoint;
-    }
+    public Set<Location> getReachedCheckpoints() { return reachedCheckpoints; }
+    public int getCheckpoint()                   { return checkpoint; }
+    public void setCheckpoint(int checkpoint)    { this.checkpoint = checkpoint; }
+    public int getFalls()                        { return falls; }
+    public void addFall()                        { this.falls++; }
+    public UUID getUuid()                        { return uuid; }
+    public Location getLastCheckpoint()          { return lastCheckpoint; }
+    public ArrayList<Location> getCheckpoints()  { return checkpoints; }
+    public void setLastCheckpoint(Location l)    { this.lastCheckpoint = l; }
 }

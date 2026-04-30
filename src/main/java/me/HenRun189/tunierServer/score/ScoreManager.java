@@ -60,7 +60,6 @@ public class ScoreManager {
     }
 
     public void setupScoreboard() {
-
         ScoreboardManager manager = Bukkit.getScoreboardManager();
         if (manager == null) return;
 
@@ -72,20 +71,33 @@ public class ScoreManager {
         }
 
         objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-
         updateScoreboard();
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.setScoreboard(board);
         }
+
+        if (teamManager != null) {
+            teamManager.reapplyAllTeams();
+        }
+
     }
 
     public void updateScoreboard() {
-
         if (board == null || objective == null || teamManager == null) return;
 
+        // Nur Sidebar-Einträge löschen, Team-Entries bleiben
         for (String entry : new HashSet<>(board.getEntries())) {
-            board.resetScores(entry);
+            boolean isTeamMember = false;
+            for (Team t : board.getTeams()) {
+                if (t.hasEntry(entry)) {
+                    isTeamMember = true;
+                    break;
+                }
+            }
+            if (!isTeamMember) {
+                board.resetScores(entry);
+            }
         }
 
         Collection<TeamData> teams = teamManager.getTeams().values();
@@ -99,47 +111,37 @@ public class ScoreManager {
 
         List<TeamData> sorted = new ArrayList<>(teams);
 
-        // 🔥 richtige Sortierung je nach Phase
         sorted.sort((a, b) -> {
             int pointsA = currentGame.equals("Warten auf Spiel")
                     ? getTotalPoints(a.getName())
                     : getPoints(a.getName());
-
             int pointsB = currentGame.equals("Warten auf Spiel")
                     ? getTotalPoints(b.getName())
                     : getPoints(b.getName());
-
             return Integer.compare(pointsB, pointsA);
         });
 
         int score = sorted.size() + 6;
-
         objective.getScore("§7 ").setScore(score--);
 
         int place = 1;
-
         for (TeamData team : sorted) {
-
             int points = currentGame.equals("Warten auf Spiel")
                     ? getTotalPoints(team.getName())
                     : getPoints(team.getName());
 
             String line = "§6#" + place + " "
                     + team.getColor() + team.getName()
-                    + " §8» §a" + points;
-
-            line = line + "§" + Integer.toHexString(place);
+                    + " §8» §a" + points
+                    + "§" + Integer.toHexString(place);
 
             objective.getScore(line).setScore(score--);
             place++;
         }
 
         objective.getScore("§0 ").setScore(score--);
-
         objective.getScore("§7" + currentGame + " ").setScore(score--);
-
         objective.getScore("§1 ").setScore(score--);
-
         objective.getScore("§5twitch.tv/henrun189 ").setScore(score--);
     }
 

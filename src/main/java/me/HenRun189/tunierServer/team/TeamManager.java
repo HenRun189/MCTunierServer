@@ -286,6 +286,29 @@ public class TeamManager {
         TunierServer.getInstance().getScoreManager().applyToPlayer(player);
         TunierServer.getInstance().getScoreManager().updateScoreboard();
     }
+
+    public void reapplyAllTeams() {
+        if (board == null) return;
+
+        for (TeamData data : teams.values()) {
+            Team team = board.getTeam(data.getName());
+            if (team == null) {
+                team = board.registerNewTeam(data.getName());
+            }
+            team.setPrefix(data.getColor() + "[" + data.getPrefix() + "] ");
+            team.setSuffix(" §7");
+            team.setColor(data.getColor());
+            team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.ALWAYS);
+            team.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
+
+            for (UUID uuid : data.getPlayers()) {
+                Player p = Bukkit.getPlayer(uuid);
+                if (p != null && p.isOnline()) {
+                    if (!team.hasEntry(p.getName())) team.addEntry(p.getName());
+                }
+            }
+        }
+    }
 }
 
 //GPT 23

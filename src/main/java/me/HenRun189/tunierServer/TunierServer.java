@@ -205,7 +205,10 @@ public class TunierServer extends JavaPlugin implements Listener {
     public GameManager getGameManager() {
         return gameManager;
     }
+
+    public TeamManager getTeamManager() {
+        return teamManager;
+    }
+
 }
-
-
 //GPT 00
