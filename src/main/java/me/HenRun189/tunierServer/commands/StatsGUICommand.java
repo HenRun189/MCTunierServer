@@ -45,6 +45,7 @@ public class StatsGUICommand implements CommandExecutor {
             int pvp = data.getOrDefault("PvP", 0);
             int item = data.getOrDefault("Item Collector", 0);
             int jnr = data.getOrDefault("Jump and Run", 0);
+            int spleef = data.getOrDefault("Spleef Windcharge", 0);
             int total = scoreManager.getTotalPoints(team.getName());
 
             ItemStack itemStack = new ItemStack(Material.PLAYER_HEAD);
@@ -57,6 +58,7 @@ public class StatsGUICommand implements CommandExecutor {
             lore.add("§7PvP: §c" + pvp);
             lore.add("§7Item: §b" + item);
             lore.add("§7Jump&Run: §d" + jnr);
+            lore.add("§7Spleef: §3" + spleef);
             lore.add("§8----------------");
             lore.add("§aTotal: §a" + total);
 

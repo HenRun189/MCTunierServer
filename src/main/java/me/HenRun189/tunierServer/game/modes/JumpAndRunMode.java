@@ -372,7 +372,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         pd.setLastCheckpoint(cpTeleport);
 
         TeamData team = teamManager.getTeamByPlayer(p.getUniqueId());
-        if (team != null) scoreManager.addPoints(team.getName(), 10);
+        if (team != null) scoreManager.addPoints(team.getName(), 5);
 
         p.spawnParticle(Particle.HAPPY_VILLAGER, cpTeleport, 30, 0.3, 0.3, 0.3, 0);
         p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
@@ -561,7 +561,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         int sum = 0;
         for (UUID uuid : team.getPlayers()) {
             PlayerData pd = data.get(uuid);
-            if (pd != null) sum += pd.getCheckpoint() * 10;
+            if (pd != null) sum += pd.getCheckpoint() * 5;
         }
         return sum;
     }

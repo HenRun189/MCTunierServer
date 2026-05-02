@@ -574,25 +574,63 @@ public class GameManager implements Listener {
         }.runTaskTimer(TunierServer.getInstance(), 0L, 30L);
     }
 
-    private void sendGameInfo(String mode) {
-        switch (mode.toLowerCase()) {
-            case "achievement" -> {
-                Bukkit.broadcast(Component.text(" "));
-                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
-                Bukkit.broadcast(Component.text("§6§lAchievement Battle"));
-                Bukkit.broadcast(Component.text("§7➤ Erfülle das vorgegebene Achievement"));
-                Bukkit.broadcast(Component.text("§7➤ Jedes Achievement gibt §a+10 Punkte"));
-                Bukkit.broadcast(Component.text("§7➤ Alle Teams haben die gleiche Reihenfolge"));
-                Bukkit.broadcast(Component.text("§7➤ Eigene Welten pro Team, aber gleicher Seed"));
-                Bukkit.broadcast(Component.text("§7➤ §c3x Skip§7 mit §e/skip"));
-                Bukkit.broadcast(Component.text("§8┃ §e/help §7für Achievement Infos"));
-                Bukkit.broadcast(Component.text("§8┃ §e/bp §7für Team-Backpack"));
+        private void sendGameInfo(String mode) {
+            switch (mode.toLowerCase()) {
+                case "achievement" -> {
+                    Bukkit.broadcast(Component.text(" "));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                    Bukkit.broadcast(Component.text("§6§lAchievement Battle"));
+                    Bukkit.broadcast(Component.text("§7➤ Erfülle das vorgegebene Achievement"));
+                    Bukkit.broadcast(Component.text("§7➤ Jedes Achievement gibt §a+10 Punkte"));
+                    //Bukkit.broadcast(Component.text("§7➤ Alle Teams haben die gleiche Reihenfolge"));
+                    //Bukkit.broadcast(Component.text("§7➤ Eigene Welten pro Team, aber gleicher Seed"));
+                    Bukkit.broadcast(Component.text("§7➤ §c3x Skip§7 mit §e/skip"));
+                    Bukkit.broadcast(Component.text("§8┃ §e/help §7für Achievement Infos"));
+                    Bukkit.broadcast(Component.text("§8┃ §e/bp §7für Team-Backpack"));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                }
+                case "pvp"          -> {
+                    Bukkit.broadcast(Component.text(" "));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                    Bukkit.broadcast(Component.text("§6§lHunger Game"));
+                    Bukkit.broadcast(Component.text("§7➤ Pro kill gibt es §a+20Punkte"));
+                    Bukkit.broadcast(Component.text("§7➤ Desto länger man überlebt des to mehr Punkte"));
+                    Bukkit.broadcast(Component.text("§7➤ In Truhen ist Loot. Blöcke abbauen geht nicht"));
+                    Bukkit.broadcast(Component.text("§7➤ Worldboarder verkleinert sich"));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                }
+                case "jumpandrun" -> {
+                    Bukkit.broadcast(Component.text(" "));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                    Bukkit.broadcast(Component.text("§6§lJump and Run"));
+                    Bukkit.broadcast(Component.text("§7➤ Erreiche das Ziel so schnell wie möglich"));
+                    Bukkit.broadcast(Component.text("§7➤ §6Goldblöcke §7markieren Checkpoints"));
+                    Bukkit.broadcast(Component.text("§7➤ Jeder Checkpoint bringt deinem Team §a+5 Punkte"));
+                    Bukkit.broadcast(Component.text("§7➤ Die ersten §e3 Spieler §7im Ziel erhalten Bonuspunkte"));
+                    Bukkit.broadcast(Component.text("§7➤ Nach §e20 Min §7endet das Spiel, sobald min. ein Spieler im Ziel ist"));
+                    Bukkit.broadcast(Component.text("§8┃ §7Mit dem §eFeuerwerk §7kannst du die Spielersichtbarkeit umschalten"));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                }
+                case "itemcollector"-> {
+                    Bukkit.broadcast(Component.text(" "));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                    Bukkit.broadcast(Component.text("§6§Item Sammler"));
+                    Bukkit.broadcast(Component.text("§7➤ Sammle und Crafte so viele verschiedene Items wie möglich"));
+                    Bukkit.broadcast(Component.text("§7➤ Jedes neue Item gibt §a+1 Punkt"));
+                    Bukkit.broadcast(Component.text("§8┃ §e/bp §7für Team-Backpack"));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                }
+                case "spleefwindcharge" -> {
+                    Bukkit.broadcast(Component.text(" "));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                    Bukkit.broadcast(Component.text("§b§lSpleef Windcharge"));
+                    Bukkit.broadcast(Component.text("§7➤ Desto länger man auf den Platformen ist desto mehr punkte gibt es"));
+                    Bukkit.broadcast(Component.text("§7➤ Trapdoors löschen sich nach zeit"));
+                    Bukkit.broadcast(Component.text("§7➤ Nutze §fWindcharges §7um Gegner runterzuschießen"));
+                    Bukkit.broadcast(Component.text("§7➤ Jede Sekunde §7gibt's einen neuen Windcharge"));
+                    Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                }
             }
-            case "pvp"          -> Bukkit.broadcast(Component.text("§6§lPvP §7» Besiegt Gegner für Punkte."));
-            case "jumpandrun"   -> Bukkit.broadcast(Component.text("§6§lJump and Run §7» Schafft Parkour Maps so schnell wie möglich."));
-            case "itemcollector"-> Bukkit.broadcast(Component.text("§6§lItem Collector §7» Sammelt Items für Punkte."));
         }
-    }
-
     public boolean isGameActive() { return gameActive; }
 }

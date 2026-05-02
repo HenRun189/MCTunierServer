@@ -4,10 +4,12 @@ import me.HenRun189.tunierServer.score.ScoreManager;
 import me.HenRun189.tunierServer.team.TeamManager;
 import me.HenRun189.tunierServer.team.TeamData;
 
-import org.bukkit.command.*;
-import org.bukkit.entity.Player;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class InfoCommand implements CommandExecutor {
 
@@ -19,62 +21,52 @@ public class InfoCommand implements CommandExecutor {
         this.teamManager = teamManager;
     }
 
-
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-
-        sender.sendMessage("§6§lTurnier Übersicht:");
+        sender.sendMessage(" ");
+        sender.sendMessage("§8§m------------------------------------------------");
+        sender.sendMessage("§6§lTurnier Übersicht");
+        sender.sendMessage("§8§m------------------------------------------------");
+        sender.sendMessage("§7Team         §eAch  §cPvP  §aItem  §6JnR  §bSpl  §fTotal");
 
         Map<String, Map<String, Integer>> history = scoreManager.getHistoryPoints();
 
-        // Header (fest gebaut)
-        sender.sendMessage("§7Team        §eAch  PvP  Item JnR  §aTotal");
-
         for (TeamData team : teamManager.getTeams().values()) {
+            String originalName = team.getName();
+            String shortName = shorten(originalName, 12);
+            String paddedName = String.format("%-12s", shortName);
 
-            String name = team.getName();
+            Map<String, Integer> data = history.getOrDefault(originalName, new HashMap<>());
 
-            // ✂️ max Länge 10
-            if (name.length() > 10) {
-                name = name.substring(0, 9) + "…";
-            }
-
-            // 👉 feste spaces (WICHTIG)
-            String paddedName = name + " ".repeat(12 - name.length());
-
-            Map<String, Integer> data = history.getOrDefault(team.getName(), new HashMap<>());
-
-            int ach = data.getOrDefault("Achievement Battle", 0);
-            int pvp = data.getOrDefault("PvP", 0);
-            int item = data.getOrDefault("Item Collector", 0);
-            int jnr = data.getOrDefault("Jump and Run", 0);
-            int total = scoreManager.getTotalPoints(team.getName());
+            int ach   = data.getOrDefault("Achievement Battle", 0);
+            int pvp   = data.getOrDefault("PvP", 0);
+            int item  = data.getOrDefault("Item Collector", 0);
+            int jnr   = data.getOrDefault("Jump and Run", 0);
+            int spl   = data.getOrDefault("Spleef Windcharge", 0);
+            int total = scoreManager.getTotalPoints(originalName);
 
             String line =
                     team.getColor() + paddedName +
-                            "§e" + fix(ach) +
-                            fix(pvp) +
-                            fix(item) +
-                            fix(jnr) +
-                            "§a" + fix(total);
+                            "§e" + num(ach) +
+                            "§c" + num(pvp) +
+                            "§a" + num(item) +
+                            "§6" + num(jnr) +
+                            "§b" + num(spl) +
+                            "§f" + num(total);
 
             sender.sendMessage(line);
         }
 
+        sender.sendMessage("§8§m------------------------------------------------");
         return true;
     }
 
-
-    private String fix(int num) {
-        return String.format("%-4d", num);
+    private String num(int value) {
+        return String.format("%4d ", value);
     }
 
-    private String pad(String text, int length) {
-        return String.format("%-" + length + "s", text);
+    private String shorten(String text, int maxLen) {
+        if (text.length() <= maxLen) return text;
+        return text.substring(0, maxLen - 1) + "…";
     }
-
-    private String padNum(int num) {
-        return String.format("%3d", num); // feste Breite!
-    }
-
 }
