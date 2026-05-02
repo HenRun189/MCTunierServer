@@ -43,7 +43,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private double layerDepletionTime = 60 * 20;  // In ticks (oder halt *20 für Sekunden)
     private double depletionExp = 2;
     private double degradeTime = 60;
-    private int extraWindchargeCooldown = 20;
+    private int extraWindchargeCooldown = 10;
 
 
     private Map<UUID, Player> data = new HashMap<>();
@@ -61,7 +61,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     private int currentLayer = 0;
     private ArrayList<degradingTrapdoor> trapdoors = new ArrayList<degradingTrapdoor>();
-
 
 
 
@@ -138,7 +137,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             if (!p.getInventory().contains(Material.WIND_CHARGE)) {
                 Integer prev = windchargeCooldown.get(uuid);
 
-                if (prev + 1 == extraWindchargeCooldown) {
+                if (prev + 1 >= extraWindchargeCooldown) {
                     p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
                     windchargeCooldown.put(uuid, 0);
                 }
@@ -149,9 +148,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
 
         if (trapdoors.size() == 0) {
-            Location lLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
-            Location lLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
-            fillTrapDoorsArr(trapdoors, lLoc1, lLoc2, world);
+            Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
+            Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
+            trapdoors = fillTrapDoorsArr(trapdoors, olLoc1, olLoc2, world);
             currentLayer++;
         }
 
@@ -217,7 +216,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     }
 
-    public void fillTrapDoorsArr(ArrayList<degradingTrapdoor> trapdoors, Location loc1, Location loc2, World world) {
+    public ArrayList<degradingTrapdoor> fillTrapDoorsArr(ArrayList<degradingTrapdoor> arg_trapdoors, Location loc1, Location loc2, World world) {
 
         int smallX = (int) Math.min(loc1.getX(), loc2.getX());
         int bigX = (int) Math.max(loc1.getX(), loc2.getX());
@@ -229,9 +228,10 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             for (int z = smallZ; z <= bigZ; z++) {
                 Location loc = new Location(world, x, loc1.getY(), z);
                 degradingTrapdoor dTP = new degradingTrapdoor(loc, 0);
-                trapdoors.add(dTP);
+                arg_trapdoors.add(dTP);
             }
         }
+        return arg_trapdoors;
     }
 
     private class degradingTrapdoor {
@@ -246,8 +246,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         public boolean degrade() {
             Block trapDoorB = pos.getBlock();
             ticks++;
-
-
             double percentage = (double)ticks;
             percentage = percentage / degradeTime;
             percentage *= 3;
