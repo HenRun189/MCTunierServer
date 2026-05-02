@@ -37,7 +37,7 @@ public abstract class AbstractGameMode implements GameMode {
             @Override
             public void run() {
 
-                // ⏸ Pause
+                // Pause
                 if (TunierServer.getInstance().getGameManager().isPaused()) {
 
                     pauseTick++;
@@ -51,14 +51,14 @@ public abstract class AbstractGameMode implements GameMode {
                     return;
                 }
 
-                // 🚀 GAME START (OHNE EXTRA COUNTDOWN)
+                // GAME START (OHNE EXTRA COUNTDOWN)
                 if (!started) {
                     started = true;
                     onGameStart();
                     return;
                 }
 
-                // 🔁 GAME LOOP
+                // GAME LOOP
                 time--;
 
                 onGameTick();
@@ -106,7 +106,7 @@ public abstract class AbstractGameMode implements GameMode {
 
                 TeamData team = null;
 
-                // 🔥 WICHTIG: Team holen (je nach System)
+                // WICHTIG: Team holen (je nach System)
                 if (teamManager != null) {
                     team = teamManager.getTeamByPlayer(p.getUniqueId());
                 }
@@ -163,7 +163,7 @@ public abstract class AbstractGameMode implements GameMode {
         }
     }
 
-    // 🔥 ABSTRACTS
+    // ABSTRACTS
     protected abstract void onGameStart();
     protected abstract void onGameTick();
     protected abstract List<TeamData> getRanking();

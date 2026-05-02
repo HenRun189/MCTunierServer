@@ -13,7 +13,7 @@ public class GameCommand implements CommandExecutor, TabCompleter {
     private final GameManager manager;
 
     private static final List<String> SUB_COMMANDS = List.of("start", "stop", "reset", "softreset");
-    private static final List<String> MODES = List.of("achievement", "jumpandrun", "pvp", "itemcollector");
+    private static final List<String> MODES = List.of("achievement", "jumpandrun", "pvp", "itemcollector", "spleefwindcharge");
 
     public GameCommand(GameManager manager) {
         this.manager = manager;

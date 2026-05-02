@@ -235,7 +235,7 @@ public class GameManager implements Listener {
                 return;
             }
             case "spleefwindcharge" -> {
-                currentMode = new JumpAndRunMode(teamManager, scoreManager, this);
+                currentMode = new SpleefWindChargeMode(teamManager, scoreManager);
                 scoreManager.setCurrentGame("Spleef Windcharge");
 
                 startLobbyCountdown(lower);
