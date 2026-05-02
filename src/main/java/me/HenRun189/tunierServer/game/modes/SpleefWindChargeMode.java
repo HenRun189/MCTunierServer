@@ -246,7 +246,12 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         public boolean degrade() {
             Block trapDoorB = pos.getBlock();
             ticks++;
-            int status = (int) (3.0 * ticks / degradeTime);
+
+
+            double percentage = (double)ticks;
+            percentage = percentage / degradeTime;
+            percentage *= 3;
+            int status = (int)percentage;
 
             if (status != trapDoorTypes.length) {
 
