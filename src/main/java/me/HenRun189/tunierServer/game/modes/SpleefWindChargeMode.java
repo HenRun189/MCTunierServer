@@ -41,10 +41,14 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private int layerAmount = 6; // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
     private double startDegradeSpeed = 2;  // Pro Sekunde
     private double layerDepletionTime = 60 * 20;  // In ticks (oder halt *20 für Sekunden)
-    private double depletionExp = 1;
+    private double depletionExp = 2;
+    private double degradeTime = 60
+    private int extraWindchargeCooldown = 20;
 
 
     private Map<UUID, Player> data = new HashMap<>();
+    private ArrayList<degradingTrapdoor> currDegradingTD = new ArrayList<>();
+    private Map<UUID, int> windchargeCooldown = new HashMap<>();
     private ArrayList<UUID> activePlayers = new ArrayList<>();
     private Map<UUID, Integer> playerLayer = new HashMap<>();
     private double degradeCoefficient;
@@ -101,8 +105,10 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             p.setVelocity(new Vector(0, 0, 0));
             double rndX = randomBetween(loc1.getX(), loc2.getX());
             double rndZ = randomBetween(loc1.getZ(), loc2.getZ());
-            Location loc = new Location(world, rndX, loc1.getY(), rndZ);
+            Location loc = new Location(world, rndX, 117, rndZ);
             p.teleport(loc);
+
+            windchargeCooldown.put(uuid, 0);
         }
     }
 
@@ -127,11 +133,18 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
             if (p == null) continue;
 
-            if (!p.getInventory().contains(Material.WIND_CHARGE)
-                    && p.getGameMode() != GameMode.CREATIVE
-                    && p.getGameMode() != GameMode.SPECTATOR) {
+            if (p.getGameMode() == GameMode.CREATIVE || p.getGameMode() == GameMode.SPECTATOR) continue;
 
-                p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
+            if (!p.getInventory().contains(Material.WIND_CHARGE)) {
+                Integer prev = windchargeCooldown.get(uuid);
+
+                if (prev + 1 == extraWindchargeCooldown) {
+                    p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
+                    windchargeCooldown.put(uuid, 0);
+                }
+                else {
+                    windchargeCooldown.put(uuid, prev + 1);
+                }
             }
         }
 
@@ -144,6 +157,12 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
         totalTick += 1.0;
 
+        for (Integer i = 0; i < currDegradingTD.length; i++) {
+            if (currDegradingTD.get(i).degrade()) {
+                currDegradingTD.remove(i);
+            }
+        }
+
         double currDegrade = ((degradeCoefficient / (depletionExp + 1)) * expn(totalTick, (depletionExp + 1)) + startDegradeSpeed * totalTick);
         int newDegrade = ((int)currDegrade) - ((int)prevDegrade);
         prevDegrade = currDegrade;
@@ -152,10 +171,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             Random random = new Random();
             int indexTP = random.nextInt(trapdoors.size());
 
-            if (trapdoors.get(indexTP).degrade()) {
-                trapdoors.remove(indexTP);
-            }
+            currDegradingTD.add(trapdoors.get(indexTP));
 
+            trapdoors.remove(indexTP);
         }
     }
 
@@ -217,17 +235,18 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     }
 
     private class degradingTrapdoor {
-        private int status;
+        private int ticks;
         private Location pos;
 
-        public degradingTrapdoor(Location arg_pos, int arg_status) {
-            status = arg_status;
+        public degradingTrapdoor(Location arg_pos, int arg_ticks) {
+            ticks = arg_ticks;
             pos = arg_pos;
         }
 
         public boolean degrade() {
             Block trapDoorB = pos.getBlock();
-            status++;
+            ticks++;
+            Integer status = Integer(3 * double(ticks) / double(degradeTime));
 
             if (status != trapDoorTypes.length) {
 

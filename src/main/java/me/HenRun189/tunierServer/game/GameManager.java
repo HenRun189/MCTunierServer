@@ -364,7 +364,7 @@ public class GameManager implements Listener {
                 return;
             }
             for (Player p : Bukkit.getOnlinePlayers()) {
-                p.teleport(new Location(world, 0.5, 65, 0.5, 0f, 0f));
+                p.teleport(new Location(world, -13.7, 117, -15.7, 0f, 0f));
             }
             startGameCountdown();
             return;
