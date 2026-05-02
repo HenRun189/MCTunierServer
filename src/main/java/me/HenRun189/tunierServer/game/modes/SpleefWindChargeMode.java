@@ -3,6 +3,7 @@ package me.HenRun189.tunierServer.game.modes;
 import me.HenRun189.tunierServer.score.ScoreManager;
 import me.HenRun189.tunierServer.team.TeamData;
 import me.HenRun189.tunierServer.team.TeamManager;
+import me.HenRun189.tunierServer.TunierServer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -35,14 +36,17 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private World world = Bukkit.getWorld("windchargeworld");
 
 
-    private Location loc1 = new Location(world, -13, 117, -15); // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
-    private Location loc2 = new Location(world, 14, 117, 15); // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
-    private double higthDiffernce = 5; // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
-    private int layerAmount = 6; // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
-    private double startDegradeSpeed = 2;  // Pro Sekunde
-    private double layerDepletionTime = 60 * 20;  // In ticks (oder halt *20 für Sekunden)
-    private double depletionExp = 2;
-    private long degradeTime = 5; //5 sek pro stufe
+    private Location spawnLoc = new Location(world, -1, 128, 1); // Lobby-Spawn
+    private Location loc1 = new Location(world, -13, 117, -15);  // Platform oben
+    private Location loc2 = new Location(world, 14, 117, 15);
+    private double higthDiffernce = 8; //// 117, 112, 107...
+    private int layerAmount = 6;
+    private double currentDepletionExp = 1.5; // startet bei 1.5, wird pro Layer größer
+    private double startDegradeSpeed = 2;        // langsam anfangen
+    private double layerDepletionTime = 30;      // in GameTicks (Sekunden), Layer 1 nach ~30 Sek weg
+    private double depletionExp = 3;             // stark exponenziell
+    private long degradeTime = 2;               // 2 Sek pro Stufe
+    private long deleteTime = 1;                // 1 Sek bis Luft
     private int extraWindchargeCooldown = 2; //für 2 sek
 
 
@@ -64,16 +68,18 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     private final Random random = new Random();
 
+    private ArrayList<degradingTrapdoor> nextLayerTrapdoors = new ArrayList<>();
+    private boolean nextLayerStarted = false;
+
 
 
     public SpleefWindChargeMode(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
-        super(200, arg_teamManager);
+        super(300, arg_teamManager);  //300 für 5min
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
     }
 
     public void preGame(Collection<Player> players) {
-
         for (TeamData team : teamManager.getTeams().values()) {
             for (UUID uuid : team.getPlayers()) {
                 Player p = Bukkit.getPlayer(uuid);
@@ -81,13 +87,17 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 data.put(p.getUniqueId(), p);
                 activePlayers.add(p.getUniqueId());
                 playerLayer.put(p.getUniqueId(), 0);
-
+                p.teleport(spawnLoc);          // ← Spawn
+                p.setInvulnerable(true);       // ← kein Damage
+                p.setHealth(20.0); // 10 Herzen
+                p.setFoodLevel(20);
             }
         }
 
+
         trapDoorArea = Math.abs(loc1.getX() - loc2.getX()) * Math.abs(loc1.getZ() - loc2.getZ());
 
-        degradeCoefficient = (depletionExp + 1) * (trapDoorArea / expn(layerDepletionTime, depletionExp + 1) - startDegradeSpeed / expn(layerDepletionTime, depletionExp));
+        degradeCoefficient = (currentDepletionExp + 1) * (trapDoorArea / expn(layerDepletionTime, currentDepletionExp + 1) - startDegradeSpeed / expn(layerDepletionTime, currentDepletionExp));
 
         for (int i = 0; i < layerAmount; i++) {
 
@@ -99,16 +109,15 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     @Override
     protected void onGameStart() {
-
         for (UUID uuid : activePlayers) {
-
             Player p = data.get(uuid);
-            p.setVelocity(new Vector(0, 0, 0));
-            double rndX = randomBetween(loc1.getX(), loc2.getX());
-            double rndZ = randomBetween(loc1.getZ(), loc2.getZ());
-            Location loc = new Location(world, rndX, 117, rndZ);
-            p.teleport(loc);
+            if (p == null) continue;
 
+            // Einfach 5 Blöcke runter von aktueller Position
+            Location drop = p.getLocation().clone().subtract(0, 5, 0);
+            p.teleport(drop);
+
+            p.setVelocity(new Vector(0, 0, 0));
             windchargeCooldown.put(uuid, 0);
         }
     }
@@ -116,27 +125,40 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     @Override
     protected void onGameTick() {
 
+        // Layer-Check Spieler
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
             if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR) {
                 double yPos = p.getLocation().getY();
-                int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
-                if (currPlayerLayer > (layerAmount + 1)) {
-                    // noch eine Funktion (sowas wie disqualify)
+                if (yPos <= 71) {
+                    disqualify(uuid);
                 } else {
+                    int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
                     playerLayer.put(uuid, currPlayerLayer);
                 }
             }
         }
 
+        // Alle ausgeschieden → Spiel Ende
+        long activeSurvivors = activePlayers.stream()
+                .filter(uuid -> {
+                    Player p = data.get(uuid);
+                    return p != null && p.getGameMode() != GameMode.SPECTATOR && p.getGameMode() != GameMode.CREATIVE;
+                })
+                .count();
+
+        if (activeSurvivors == 0) {
+            TunierServer.getInstance().getGameManager().stopGame();
+            return;
+        }
+
+        // Windcharge Cooldown
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
             if (p == null) continue;
             if (p.getGameMode() == GameMode.CREATIVE || p.getGameMode() == GameMode.SPECTATOR) continue;
 
             int prev = windchargeCooldown.get(uuid) + 1;
-
-            // XP-Bar anzeigen
             boolean hasCharge = p.getInventory().contains(Material.WIND_CHARGE);
 
             if (!hasCharge) {
@@ -149,45 +171,68 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             }
 
             if (prev >= extraWindchargeCooldown) {
-
                 if (!p.getInventory().contains(Material.WIND_CHARGE)) {
                     p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
                 }
-
                 prev = 0;
             }
 
             windchargeCooldown.put(uuid, prev);
         }
 
-        if (trapdoors.size() == 0 && currDegradingTD.size() == 0) {
+        // Neuen Layer laden wenn alles weg
+        if (trapdoors.size() == 0 && currDegradingTD.size() == 0 && nextLayerTrapdoors.size() == 0) {
+            if (currentLayer >= layerAmount) return;
             Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
             Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
-            trapdoors = fillTrapDoorsArr(trapdoors, olLoc1, olLoc2, world);
+            trapdoors = fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world);
             currentLayer++;
-            totalTick =0;
+            totalTick = 0;
             prevDegrade = 0;
+            nextLayerStarted = false;
+            currentDepletionExp += 0.5;
+            degradeCoefficient = (currentDepletionExp + 1) * (trapDoorArea / expn(layerDepletionTime, currentDepletionExp + 1) - startDegradeSpeed / expn(layerDepletionTime, currentDepletionExp));
+        }
+
+        // Paralleler Start wenn 1/6 noch übrig
+        int totalRemaining = trapdoors.size() + currDegradingTD.size();
+        if (!nextLayerStarted && totalRemaining > 0 && totalRemaining <= (int)(trapDoorArea / 6)) {
+            if (currentLayer < layerAmount) {
+                nextLayerStarted = true;
+                Location nLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
+                Location nLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
+                nextLayerTrapdoors = fillTrapDoorsArr(new ArrayList<>(), nLoc1, nLoc2, world);
+                currentLayer++;
+            }
         }
 
         totalTick += 1.0;
 
+        // Degrading Trapdoors abbauen
         for (int i = currDegradingTD.size() - 1; i >= 0; i--) {
             if (currDegradingTD.get(i).degrade()) {
                 currDegradingTD.remove(i);
             }
         }
 
-        double currDegrade = ((degradeCoefficient / (depletionExp + 1)) * expn(totalTick, (depletionExp + 1)) + startDegradeSpeed * totalTick);
-        int newDegrade = ((int)currDegrade) - ((int)prevDegrade);
+        double currDegrade = ((degradeCoefficient / (currentDepletionExp + 1)) * expn(totalTick, (currentDepletionExp + 1)) + startDegradeSpeed * totalTick);
+        int newDegrade = ((int) currDegrade) - ((int) prevDegrade);
         prevDegrade = currDegrade;
 
+        // Trapdoors in currDegradingTD verschieben – erst aktueller Layer, dann nächster
         for (int i = 0; i < newDegrade; i++) {
-            if (trapdoors.size() == 0) break;
-            int indexTP = random.nextInt(trapdoors.size()); // nutzt jetzt this.random
-            currDegradingTD.add(trapdoors.get(indexTP));
-            trapdoors.remove(indexTP);
+            if (trapdoors.size() > 0) {
+                int indexTP = random.nextInt(trapdoors.size());
+                currDegradingTD.add(trapdoors.get(indexTP));
+                trapdoors.remove(indexTP);
+            } else if (nextLayerTrapdoors.size() > 0) {
+                int indexTP = random.nextInt(nextLayerTrapdoors.size());
+                currDegradingTD.add(nextLayerTrapdoors.get(indexTP));
+                nextLayerTrapdoors.remove(indexTP);
+            }
         }
     }
+
 
     @Override
     public List<TeamData> getRanking() {
@@ -210,14 +255,14 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     public void fill(Location loc1, Location loc2, Material m) {
 
-        int smallX = (int) Math.min(loc1.getX(), loc2.getX());
-        int bigX = (int) Math.max(loc1.getX(), loc2.getX());
+        int smallX = (int) Math.floor(Math.min(loc1.getX(), loc2.getX()));
+        int bigX = (int) Math.floor(Math.max(loc1.getX(), loc2.getX()));
 
-        int smallY = (int) Math.min(loc1.getY(), loc2.getY());
-        int bigY = (int) Math.max(loc1.getY(), loc2.getY());
+        int smallY = (int) Math.floor(Math.min(loc1.getY(), loc2.getY()));
+        int bigY = (int) Math.floor(Math.max(loc1.getY(), loc2.getY()));
 
-        int smallZ = (int) Math.min(loc1.getZ(), loc2.getZ());
-        int bigZ = (int) Math.max(loc1.getZ(), loc2.getZ());
+        int smallZ = (int) Math.floor(Math.min(loc1.getZ(), loc2.getZ()));
+        int bigZ = (int) Math.floor(Math.max(loc1.getZ(), loc2.getZ()));
 
         for (int x = smallX; x <= bigX; x++) {
             for (int y = smallY; y <= bigY; y++) {
@@ -231,11 +276,11 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     public ArrayList<degradingTrapdoor> fillTrapDoorsArr(ArrayList<degradingTrapdoor> arg_trapdoors, Location loc1, Location loc2, World world) {
 
-        int smallX = (int) Math.min(loc1.getX(), loc2.getX());
-        int bigX = (int) Math.max(loc1.getX(), loc2.getX());
+        int smallX = (int) Math.floor(Math.min(loc1.getX(), loc2.getX()));
+        int bigX = (int) Math.floor(Math.max(loc1.getX(), loc2.getX()));
 
-        int smallZ = (int) Math.min(loc1.getZ(), loc2.getZ());
-        int bigZ = (int) Math.max(loc1.getZ(), loc2.getZ());
+        int smallZ = (int) Math.floor(Math.min(loc1.getZ(), loc2.getZ()));
+        int bigZ = (int) Math.floor(Math.max(loc1.getZ(), loc2.getZ()));
 
         for (int x = smallX; x <= bigX; x++) {
             for (int z = smallZ; z <= bigZ; z++) {
@@ -259,13 +304,13 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
 
         public boolean degrade() {
-
             ticks++;
 
-            if (ticks >= degradeTime) {
+            long currentLimit = (status >= trapDoorTypes.length - 1) ? deleteTime : degradeTime;
+
+            if (ticks >= currentLimit) {
                 status++;
                 ticks = 0;
-
 
                 if (status >= trapDoorTypes.length) {
                     Block trapDoorB = pos.getBlock();
@@ -298,6 +343,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     }
 
     public double expn(double base, double exponent) {
+        if (base <= 0) return 0; // ← Guard
         return Math.exp(exponent * Math.log(base));
     }
 
@@ -312,5 +358,21 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         // erstmal leer lassen
     }
 
+    @org.bukkit.event.EventHandler
+    public void onDamage(org.bukkit.event.entity.EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player p)) return;
+        if (!activePlayers.contains(p.getUniqueId())) return;
+        e.setCancelled(true); // kein Damage, Knockback vom Wind Charge bleibt
+    }
+
+    @org.bukkit.event.EventHandler
+    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent e) {
+        e.setCancelled(true); // niemand kann Blöcke abbauen
+    }
+
+    @org.bukkit.event.EventHandler
+    public void onBlockPlace(org.bukkit.event.block.BlockPlaceEvent e) {
+        e.setCancelled(true); // niemand kann Blöcke setzen
+    }
 
 }

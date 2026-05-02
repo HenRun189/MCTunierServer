@@ -432,6 +432,9 @@ public class GameManager implements Listener {
                 if (p.getWorld().getName().equals("windchargeworld")) participants.add(p);
             jnrMode.preGame(participants);
 
+            Bukkit.getPluginManager().registerEvents(jnrMode, TunierServer.getInstance());
+
+
             new BukkitRunnable() {
                 int time = 15;
 
