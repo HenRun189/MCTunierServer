@@ -42,8 +42,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private double startDegradeSpeed = 2;  // Pro Sekunde
     private double layerDepletionTime = 60 * 20;  // In ticks (oder halt *20 für Sekunden)
     private double depletionExp = 2;
-    private long degradeTime = 20;
-    private int extraWindchargeCooldown = 10;
+    private long degradeTime = 5; //5 sek pro stufe
+    private int extraWindchargeCooldown = 2; //für 2 sek
 
 
     private Map<UUID, Player> data = new HashMap<>();
@@ -61,6 +61,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     private int currentLayer = 0;
     private ArrayList<degradingTrapdoor> trapdoors = new ArrayList<degradingTrapdoor>();
+
+    private final Random random = new Random();
 
 
 
@@ -129,36 +131,47 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
-
             if (p == null) continue;
-
             if (p.getGameMode() == GameMode.CREATIVE || p.getGameMode() == GameMode.SPECTATOR) continue;
 
-            if (!p.getInventory().contains(Material.WIND_CHARGE)) {
-                Integer prev = windchargeCooldown.get(uuid);
+            int prev = windchargeCooldown.get(uuid) + 1;
 
-                if (prev + 1 >= extraWindchargeCooldown) {
-                    p.sendMessage("wc aquired");
-                    p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
-                    windchargeCooldown.put(uuid, 0);
-                }
-                else {
-                    windchargeCooldown.put(uuid, prev + 1);
-                    p.sendMessage("tt: " + prev);
-                }
+            // XP-Bar anzeigen
+            boolean hasCharge = p.getInventory().contains(Material.WIND_CHARGE);
+
+            if (!hasCharge) {
+                float progress = (float) prev / extraWindchargeCooldown;
+                p.setExp(Math.min(progress, 1.0f));
+                p.setLevel(extraWindchargeCooldown - prev);
+            } else {
+                p.setExp(0f);
+                p.setLevel(0);
             }
+
+            if (prev >= extraWindchargeCooldown) {
+
+                if (!p.getInventory().contains(Material.WIND_CHARGE)) {
+                    p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
+                }
+
+                prev = 0;
+            }
+
+            windchargeCooldown.put(uuid, prev);
         }
 
-        if (trapdoors.size() == 0) {
+        if (trapdoors.size() == 0 && currDegradingTD.size() == 0) {
             Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
             Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
             trapdoors = fillTrapDoorsArr(trapdoors, olLoc1, olLoc2, world);
             currentLayer++;
+            totalTick =0;
+            prevDegrade = 0;
         }
 
         totalTick += 1.0;
 
-        for (Integer i = 0; i < currDegradingTD.size(); i++) {
+        for (int i = currDegradingTD.size() - 1; i >= 0; i--) {
             if (currDegradingTD.get(i).degrade()) {
                 currDegradingTD.remove(i);
             }
@@ -169,11 +182,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         prevDegrade = currDegrade;
 
         for (int i = 0; i < newDegrade; i++) {
-            Random random = new Random();
-            int indexTP = random.nextInt(trapdoors.size());
-
+            if (trapdoors.size() == 0) break;
+            int indexTP = random.nextInt(trapdoors.size()); // nutzt jetzt this.random
             currDegradingTD.add(trapdoors.get(indexTP));
-
             trapdoors.remove(indexTP);
         }
     }
@@ -238,7 +249,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     private class degradingTrapdoor {
         private int ticks;
-        private int status
+        private int status;
 
         private Location pos;
 
@@ -255,7 +266,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 status++;
                 ticks = 0;
 
+
                 if (status >= trapDoorTypes.length) {
+                    Block trapDoorB = pos.getBlock();
                     trapDoorB.setType(Material.AIR);
                     return true;
                 }
@@ -264,11 +277,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 return false;
             }
 
-            if (status >= trapDoorTypes.length) {
-
-                trapDoorB.setType(Material.AIR);
-                return true;
-            }
             return false;
         }
 
@@ -294,7 +302,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     }
 
     public double randomBetween(double val0, double val1) {
-        Random random = new Random();
         double smallVal = val0 > val1 ? val1 : val0;
         double bigVal = val0 > val1 ? val0 : val1;
         return smallVal + (bigVal - smallVal) * random.nextDouble();
