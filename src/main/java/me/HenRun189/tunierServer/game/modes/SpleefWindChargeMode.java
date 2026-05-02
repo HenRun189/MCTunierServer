@@ -42,13 +42,13 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private double startDegradeSpeed = 2;  // Pro Sekunde
     private double layerDepletionTime = 60 * 20;  // In ticks (oder halt *20 für Sekunden)
     private double depletionExp = 2;
-    private double degradeTime = 60
+    private double degradeTime = 60;
     private int extraWindchargeCooldown = 20;
 
 
     private Map<UUID, Player> data = new HashMap<>();
     private ArrayList<degradingTrapdoor> currDegradingTD = new ArrayList<>();
-    private Map<UUID, int> windchargeCooldown = new HashMap<>();
+    private Map<UUID, Integer> windchargeCooldown = new HashMap<>();
     private ArrayList<UUID> activePlayers = new ArrayList<>();
     private Map<UUID, Integer> playerLayer = new HashMap<>();
     private double degradeCoefficient;
@@ -157,7 +157,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
         totalTick += 1.0;
 
-        for (Integer i = 0; i < currDegradingTD.length; i++) {
+        for (Integer i = 0; i < currDegradingTD.size(); i++) {
             if (currDegradingTD.get(i).degrade()) {
                 currDegradingTD.remove(i);
             }
@@ -246,7 +246,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         public boolean degrade() {
             Block trapDoorB = pos.getBlock();
             ticks++;
-            Integer status = Integer(3 * double(ticks) / double(degradeTime));
+            int status = (int) (3.0 * ticks / degradeTime);
 
             if (status != trapDoorTypes.length) {
 
