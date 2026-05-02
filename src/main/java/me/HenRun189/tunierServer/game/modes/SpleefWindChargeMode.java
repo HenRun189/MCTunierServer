@@ -35,14 +35,14 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private World world = Bukkit.getWorld("windchargeworld");
 
 
-    private Location loc1 = new Location(world, -13.7, 117, -15.7); // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
-    private Location loc2 = new Location(world, 14.7, 117, 15.7); // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
+    private Location loc1 = new Location(world, -13, 117, -15); // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
+    private Location loc2 = new Location(world, 14, 117, 15); // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
     private double higthDiffernce = 5; // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
     private int layerAmount = 6; // Noch einen Wert hinzufügen !!!!!!!!!!!!!!!!!!
     private double startDegradeSpeed = 2;  // Pro Sekunde
     private double layerDepletionTime = 60 * 20;  // In ticks (oder halt *20 für Sekunden)
     private double depletionExp = 2;
-    private double degradeTime = 60;
+    private long degradeTime = 20;
     private int extraWindchargeCooldown = 10;
 
 
@@ -89,8 +89,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
         for (int i = 0; i < layerAmount; i++) {
 
-            Location lLoc1 = loc1.subtract(0, higthDiffernce * i, 0);
-            Location lLoc2 = loc2.subtract(0, higthDiffernce * i, 0);
+            Location lLoc1 = loc1.clone().subtract(0, higthDiffernce * i, 0);
+            Location lLoc2 = loc2.clone().subtract(0, higthDiffernce * i, 0);
             fill(lLoc1, lLoc2, Material.BAMBOO_TRAPDOOR);
         }
     }
@@ -138,11 +138,13 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 Integer prev = windchargeCooldown.get(uuid);
 
                 if (prev + 1 >= extraWindchargeCooldown) {
+                    p.sendMessage("wc aquired");
                     p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
                     windchargeCooldown.put(uuid, 0);
                 }
                 else {
                     windchargeCooldown.put(uuid, prev + 1);
+                    p.sendMessage("tt: " + prev);
                 }
             }
         }
@@ -236,6 +238,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     private class degradingTrapdoor {
         private int ticks;
+        private int status
+
         private Location pos;
 
         public degradingTrapdoor(Location arg_pos, int arg_ticks) {
@@ -244,31 +248,43 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
 
         public boolean degrade() {
-            Block trapDoorB = pos.getBlock();
+
             ticks++;
-            double percentage = (double)ticks;
-            percentage = percentage / degradeTime;
-            percentage *= 3;
-            int status = (int)percentage;
 
-            if (status != trapDoorTypes.length) {
+            if (ticks >= degradeTime) {
+                status++;
+                ticks = 0;
 
-                TrapDoor trapDoorTD = (TrapDoor) trapDoorB.getBlockData();
+                if (status >= trapDoorTypes.length) {
+                    trapDoorB.setType(Material.AIR);
+                    return true;
+                }
 
-                boolean open = trapDoorTD.isOpen();
-
-                trapDoorB.setType(trapDoorTypes[status]);
-
-                TrapDoor newData = (TrapDoor) trapDoorB.getBlockData();
-                newData.setOpen(open);
-                trapDoorB.setBlockData(newData);
-
+                replace();
                 return false;
             }
-            else {
+
+            if (status >= trapDoorTypes.length) {
+
                 trapDoorB.setType(Material.AIR);
                 return true;
             }
+            return false;
+        }
+
+        public void replace() {
+
+            Block trapDoorB = pos.getBlock();
+
+            TrapDoor trapDoorTD = (TrapDoor) trapDoorB.getBlockData();
+
+            boolean open = trapDoorTD.isOpen();
+
+            trapDoorB.setType(trapDoorTypes[status]);
+
+            TrapDoor newData = (TrapDoor) trapDoorB.getBlockData();
+            newData.setOpen(open);
+            trapDoorB.setBlockData(newData);
         }
 
     }
