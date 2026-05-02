@@ -37,7 +37,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
 
     private Location spawnLoc = new Location(world, -1, 128, 1); // Lobby-Spawn
-    private Location loc1 = new Location(world, -13, 117, -15);  // Platform oben
+    private Location loc1 = new Location(world, -14, 117, -16);  // Platform oben
     private Location loc2 = new Location(world, 14, 117, 15);
     private double higthDiffernce = 8; //// 117, 112, 107...
     private int layerAmount = 6;
@@ -94,8 +94,20 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             }
         }
 
+        // Chunks vorladen
+        int chunkMinX = (int) Math.floor(Math.min(loc1.getX(), loc2.getX())) >> 4;
+        int chunkMaxX = (int) Math.floor(Math.max(loc1.getX(), loc2.getX())) >> 4;
+        int chunkMinZ = (int) Math.floor(Math.min(loc1.getZ(), loc2.getZ())) >> 4;
+        int chunkMaxZ = (int) Math.floor(Math.max(loc1.getZ(), loc2.getZ())) >> 4;
 
-        trapDoorArea = Math.abs(loc1.getX() - loc2.getX()) * Math.abs(loc1.getZ() - loc2.getZ());
+        for (int cx = chunkMinX; cx <= chunkMaxX; cx++) {
+            for (int cz = chunkMinZ; cz <= chunkMaxZ; cz++) {
+                world.getChunkAt(cx, cz).load(true);
+            }
+        }
+
+
+        trapDoorArea = (Math.abs(loc1.getX() - loc2.getX()) + 1) * (Math.abs(loc1.getZ() - loc2.getZ()) + 1);
 
         degradeCoefficient = (currentDepletionExp + 1) * (trapDoorArea / expn(layerDepletionTime, currentDepletionExp + 1) - startDegradeSpeed / expn(layerDepletionTime, currentDepletionExp));
 
@@ -143,7 +155,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         long activeSurvivors = activePlayers.stream()
                 .filter(uuid -> {
                     Player p = data.get(uuid);
-                    return p != null && p.getGameMode() != GameMode.SPECTATOR && p.getGameMode() != GameMode.CREATIVE;
+                    return p != null && p.getGameMode() != GameMode.SPECTATOR /*&& p.getGameMode() != GameMode.CREATIVE*/;
                 })
                 .count();
 
