@@ -64,7 +64,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
 
 
-
     public SpleefWindChargeMode(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
         super(200, arg_teamManager);
         teamManager = arg_teamManager;
