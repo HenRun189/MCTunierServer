@@ -366,8 +366,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     }
 
     @Override
-    public void handleEvent(org.bukkit.event.Event event) {
-        // erstmal leer lassen
+    public void handleEvent(Event event) {
+        // wird nicht benutzt
     }
 
     @org.bukkit.event.EventHandler
