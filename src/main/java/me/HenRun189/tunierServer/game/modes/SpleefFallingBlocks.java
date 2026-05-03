@@ -5,19 +5,17 @@ package me.HenRun189.tunierServer.game.modes;
 import me.HenRun189.tunierServer.team.TeamData;
 import me.HenRun189.tunierServer.team.TeamManager;
 import me.HenRun189.tunierServer.score.ScoreManager;
+import me.HenRun189.tunierServer.jumpandrun.PlayerData;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
+import org.bukkit.*;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.util.Vector;
 
-import java.util.Collection;
-
-import java.util.Map;
-import java.util.UUID;
-import java.util.ArrayList;
-
+import java.util.*;
 
 
 public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
@@ -36,12 +34,12 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     private TeamManager teamManager;
     private ScoreManager scoreManager;
-    private Map<UUID, Player> data = new Map<UUID, Player>();
+    private Map<UUID, Player> data = new HashMap<>();
     private ArrayList<UUID> activePlayers = new ArrayList<UUID>();
     private ArrayList<FallingBlock> fallingBlocks = new ArrayList<FallingBlock>();
 
 
-    public SpleefWindChargeMode(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
+    public SpleefFallingBlocks(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
         super(300, arg_teamManager);
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
@@ -54,7 +52,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
             for (UUID uuid : team.getPlayers()) {
                 Player p = Bukkit.getPlayer(uuid);
                 if (p == null) continue;
-                data.put(p.getUniqueId(), new PlayerData(p.getUniqueId()));
+                data.put(p.getUniqueId(), p);
                 activePlayers.add(p.getUniqueId());
                 p.teleport(spawnLoc);          // ← Spawn
                 p.setInvulnerable(true);       // ← kein Damage
@@ -104,15 +102,15 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     protected void onGameTick() {
 
-        for (int i = 0; i < fallingBlocks.length; i++) {
+        for (int i = 0; i < fallingBlocks.size(); i++) {
             if (fallingBlocks.get(i).newTick()) {
                fallingBlocks.remove(i);
             }
         }
 
-        for (Player player : data.values) {
-            if (p.getLocation().getY() < disqualifyHight && p.getGameMode() != GameMode.SPECTATOR) {
-                disqualify(player.getUniqueID());
+        for (Player player : data.values()) {
+            if (player.getLocation().getY() < disqualifyHight && player.getGameMode() != GameMode.SPECTATOR) {
+                disqualify(player.getUniqueId());
             }
         }
 
@@ -140,10 +138,6 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     }
 
-    @Override
-    public void handleEvent(Event event) {
-        // wird nicht benutzt
-    }
 
 
     public class FallingBlock {
@@ -179,20 +173,39 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
 
     @org.bukkit.event.EventHandler
-    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent e) {
-        e.setCancelled(true); // niemand kann Blöcke abbauen
-    }
-
-    @org.bukkit.event.EventHandler
-    public void onBlockPlace(org.bukkit.event.block.BlockPlaceEvent e) {
-        e.setCancelled(true); // niemand kann Blöcke setzen
-    }
-
-    @org.bukkit.event.EventHandler
     public void onDamage(org.bukkit.event.entity.EntityDamageEvent e) {
         if (!(e.getEntity() instanceof Player p)) return;
         if (!activePlayers.contains(p.getUniqueId())) return;
         e.setCancelled(true); // kein Damage, Knockback vom Wind Charge bleibt
     }
+
+    @org.bukkit.event.EventHandler
+    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent e) {
+        if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
+        e.setCancelled(true);
+    }
+
+    @org.bukkit.event.EventHandler
+    public void onBlockPlace(org.bukkit.event.block.BlockPlaceEvent e) {
+        if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
+        e.setCancelled(true);
+    }
+
+    @Override
+    public List<TeamData> getRanking() {
+        return new ArrayList<>(teamManager.getTeams().values());
+    }
+
+    @Override
+    public int getPoints(String team) {
+        return 0; // oder deine Logik
+    }
+
+    @Override
+    public void handleEvent(org.bukkit.event.Event event) {
+        // wird nicht benutzt
+    }
+
+
 }
 

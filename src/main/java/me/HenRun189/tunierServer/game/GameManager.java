@@ -210,7 +210,7 @@ public class GameManager implements Listener {
     public AchievementManager getAchievementManager() { return achievementManager; }
 
     // =========================
-    // ▶ START GAME FLOW
+    // START GAME FLOW
     // =========================
 
     public void startGameFlow(String mode) {
@@ -240,6 +240,7 @@ public class GameManager implements Listener {
 
                 startLobbyCountdown(lower);
                 return;
+            }
             case "spleeffallingblocks" -> {
                 currentMode = new SpleefWindChargeMode(teamManager, scoreManager);
                 scoreManager.setCurrentGame("Spleef Falling Blocks");
@@ -248,7 +249,7 @@ public class GameManager implements Listener {
                 return;
             }
             case "pvp" -> {
-                currentMode = new PvPMode();
+                currentMode = new PvPMode(teamManager, scoreManager);
                 scoreManager.setCurrentGame("PvP");
             }
             case "itemcollector" -> {
@@ -275,7 +276,7 @@ public class GameManager implements Listener {
     }
 
     // =========================
-    // ⏱ LOBBY COUNTDOWN
+    // LOBBY COUNTDOWN
     // =========================
 
     private void startLobbyCountdown(String mode) {

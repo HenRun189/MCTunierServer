@@ -74,7 +74,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
 
     public SpleefWindChargeMode(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
-        super(300, arg_teamManager);  //300 für 5min
+        super(250, arg_teamManager);  //250 für 4min
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
     }
@@ -366,7 +366,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     }
 
     @Override
-    public void handleEvent(Event event) {
+    public void handleEvent(org.bukkit.event.Event event) {
         // wird nicht benutzt
     }
 
@@ -379,12 +379,15 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     @org.bukkit.event.EventHandler
     public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent e) {
-        e.setCancelled(true); // niemand kann Blöcke abbauen
+        if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
+        e.setCancelled(true);
     }
 
     @org.bukkit.event.EventHandler
     public void onBlockPlace(org.bukkit.event.block.BlockPlaceEvent e) {
-        e.setCancelled(true); // niemand kann Blöcke setzen
+        if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
+        e.setCancelled(true);
     }
+
 
 }
