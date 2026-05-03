@@ -157,15 +157,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             }
         }
 
-        // Alle ausgeschieden → Spiel Ende
-        long activeSurvivors = activePlayers.stream()
-                .filter(uuid -> {
-                    Player p = data.get(uuid);
-                    return p != null && p.getGameMode() != GameMode.SPECTATOR /*&& p.getGameMode() != GameMode.CREATIVE*/;
-                })
-                .count();
-
-        if (activeSurvivors == 0) {
+        if (activePlayers.size() == 1) {
             TunierServer.getInstance().getGameManager().stopGame();
             return;
         }
@@ -213,6 +205,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 TDLayers.remove(i);
                 currentLayer++;
             }
+            else {
+                tdl.degrade();
+            }
         }
 
     }
@@ -231,6 +226,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     public void disqualify(UUID uuid) {
         playerLayer.remove(uuid);
+        activePlayers.remove(uuid);
         Player p = Bukkit.getPlayer(uuid);
         if (p != null) {
             p.setGameMode(GameMode.SPECTATOR);
