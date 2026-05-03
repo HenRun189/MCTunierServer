@@ -203,7 +203,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             TrapdoorLayer tdl = TDLayers.get(i);
             if (tdl.leftTD() == 0) {
                 TDLayers.remove(i);
-                currentLayer++;
+                //currentLayer++;
             }
             else {
                 tdl.degrade();
