@@ -241,6 +241,7 @@ public class GameManager implements Listener {
                 startLobbyCountdown(lower);
                 return;
             }
+
             case "spleeffallingblocks" -> {
                 currentMode = new SpleefFallingBlocks(teamManager, scoreManager);
                 scoreManager.setCurrentGame("Spleef Falling Blocks");
