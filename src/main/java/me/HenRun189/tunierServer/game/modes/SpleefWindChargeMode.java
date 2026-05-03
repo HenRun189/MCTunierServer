@@ -53,20 +53,19 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
 
     private Map<UUID, Player> data = new HashMap<>();
-    private ArrayList<degradingTrapdoor> currDegradingTD = new ArrayList<>();
+    //private ArrayList<degradingTrapdoor> currDegradingTD = new ArrayList<>();
     private Map<UUID, Integer> windchargeCooldown = new HashMap<>();
     private ArrayList<UUID> activePlayers = new ArrayList<>();
     private Map<UUID, Integer> playerLayer = new HashMap<>();
     private double degradeCoefficient;
     private double prevDegrade = 0;
-    private ArrayList totalTick = 0;
     private double trapDoorArea;
     private TeamManager teamManager;
     private ScoreManager scoreManager;
     private final Material[] trapDoorTypes = {Material.BAMBOO_TRAPDOOR, Material.ACACIA_TRAPDOOR, Material.MANGROVE_TRAPDOOR};
 
     private int currentLayer = 0;
-    private ArrayList<TrapdoorLayer> TDLayers = new ArrayList<>(),
+    private ArrayList<TrapdoorLayer> TDLayers = new ArrayList<>();
 
     private final Random random = new Random();
 
@@ -135,7 +134,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             windchargeCooldown.put(uuid, 0);
         }
 
-        TDLayers.put(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), loc1.clone(), loc2.clone(), world), new ArrayList<>());
+        TDLayers.add(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), loc1.clone(), loc2.clone(), world), new ArrayList<>()));
         currentLayer++;
     }
 
@@ -145,14 +144,14 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         // Layer-Check Spieler
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
+            double yPos = p.getLocation().getY();
             int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
             playerLayer.put(uuid, currPlayerLayer);
-            if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR && ) {
-                double yPos = p.getLocation().getY();
+            if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR) {
                 if (yPos <= 71) {
                     disqualify(uuid);
                 } else {
-                    int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
+                    currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
                     playerLayer.put(uuid, currPlayerLayer);
                 }
             }
@@ -204,19 +203,18 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             if ((currentLayer -1) >= layerAmount) return;
             Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
             Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
-            TDLayers.put(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world), new ArrayList<>());
+            TDLayers.add(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world), new ArrayList<>()));
             currentLayer++;
         }
 
         for (int i = 0; i < TDLayers.size(); i++) {
             TrapdoorLayer tdl = TDLayers.get(i);
             if (tdl.leftTD() == 0) {
-                tdl.remove(i),
+                TDLayers.remove(i);
                 currentLayer++;
             }
         }
 
-        totalTick++;
     }
 
 
@@ -293,7 +291,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             prevDegrade = 0;
         }
 
-        public boolean degrade() {
+        public void degrade() {
 
             for (int i = currDegradingTD.size() - 1; i >= 0; i--) {
                 if (currDegradingTD.get(i).degrade()) {
@@ -415,8 +413,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         data.clear();
         playerLayer.clear();
         windchargeCooldown.clear();
-        currDegradingTD.clear();
-        trapdoors.clear();
         nextLayerTrapdoors.clear();
+        TDLayers.clear();
     }
 }
