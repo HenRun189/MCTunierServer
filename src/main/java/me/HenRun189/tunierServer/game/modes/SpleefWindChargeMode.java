@@ -43,9 +43,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private Location loc2 = new Location(world, 14, 117, 15);
     private double higthDiffernce = 8; //// 117, 112, 107...
     private int layerAmount = 6;
-    private double currentDepletionExp = 1.5; // startet bei 1.5, wird pro Layer größer
+    private double currentDepletionExp = 1; // startet bei 1.5, wird pro Layer größer
     private double startDegradeSpeed = 2;        // langsam anfangen
-    private double layerDepletionTime = 30;      // in GameTicks (Sekunden), Layer 1 nach ~30 Sek weg
+    private double layerDepletionTime = 45;      // in GameTicks (Sekunden), Layer 1 nach ~30 Sek weg
     private double depletionExp = 3;             // stark exponenziell
     private long degradeTime = 2;               // 2 Sek pro Stufe
     private long deleteTime = 1;                // 1 Sek bis Luft
@@ -208,9 +208,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             degradeCoefficient = (currentDepletionExp + 1) * (trapDoorArea / expn(layerDepletionTime, currentDepletionExp + 1) - startDegradeSpeed / expn(layerDepletionTime, currentDepletionExp));
         }
 
-        // Paralleler Start wenn 1/6 noch übrig
+
         int totalRemaining = trapdoors.size() + currDegradingTD.size();
-        if (!nextLayerStarted && totalRemaining > 0 && totalRemaining <= (int)(trapDoorArea / 6)) {
+        if (!nextLayerStarted && totalRemaining > 0 && totalRemaining <= (int)(trapDoorArea / 2)) { // Paralleler Start wenn 1/2 noch übrig
             if (currentLayer < layerAmount) {
                 nextLayerStarted = true;
                 Location nLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
