@@ -7,6 +7,7 @@ import me.HenRun189.tunierServer.TunierServer;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
 import java.util.Collection;
@@ -24,7 +25,8 @@ import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.TrapDoor;
-
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
@@ -377,8 +379,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         e.setCancelled(true); // kein Damage, Knockback vom Wind Charge bleibt
     }
 
-    @org.bukkit.event.EventHandler
-    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent e) {
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent e) {
         if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
         e.setCancelled(true);
     }
@@ -389,5 +391,16 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         e.setCancelled(true);
     }
 
+    @Override
+    public void stop() {
+        HandlerList.unregisterAll(this);
 
+        activePlayers.clear();
+        data.clear();
+        playerLayer.clear();
+        windchargeCooldown.clear();
+        currDegradingTD.clear();
+        trapdoors.clear();
+        nextLayerTrapdoors.clear();
+    }
 }

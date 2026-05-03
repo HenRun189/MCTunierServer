@@ -2,6 +2,7 @@
 
 package me.HenRun189.tunierServer.game.modes;
 
+import me.HenRun189.tunierServer.TunierServer;
 import me.HenRun189.tunierServer.team.TeamData;
 import me.HenRun189.tunierServer.team.TeamManager;
 import me.HenRun189.tunierServer.score.ScoreManager;
@@ -11,9 +12,12 @@ import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.util.Vector;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 
 import java.util.*;
 
@@ -23,10 +27,10 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     private World world = Bukkit.getWorld("windchargeworld");
 
     private int fallTime = 10;
-    private Material fallingBlockType = Material.SANDSTONE;  // noch bestimmen !!!!!!!!!!!!
-    private Material fallActiveBlockType = Material.RED_SANDSTONE; // auch noch bestimmen !!!!!!!!!!
+    private Material fallingBlockType = Material.SANDSTONE;
+    private Material fallActiveBlockType = Material.RED_SANDSTONE;
     private long disqualifyHight;
-    private Location spawnLoc = new Location(world, 0, 128, -91); // auch noch setzten etc
+    private Location spawnLoc = new Location(world, 0, 128, -91);
     private double higthDiffernce = 8; //// 117, 112, 107...
     private int layerAmount = 6;
     private Location loc1 = new Location(world, 14, 118, -109);
@@ -179,15 +183,17 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         e.setCancelled(true); // kein Damage, Knockback vom Wind Charge bleibt
     }
 
-    @org.bukkit.event.EventHandler
-    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent e) {
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent e) {
         if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
+        if (!TunierServer.getInstance().getGameManager().isGameActive()) return;
         e.setCancelled(true);
     }
 
     @org.bukkit.event.EventHandler
     public void onBlockPlace(org.bukkit.event.block.BlockPlaceEvent e) {
         if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
+        if (!TunierServer.getInstance().getGameManager().isGameActive()) return;
         e.setCancelled(true);
     }
 
@@ -206,6 +212,14 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         // wird nicht benutzt
     }
 
+    @Override
+    public void stop() {
+        HandlerList.unregisterAll(this);
+
+        activePlayers.clear();
+        data.clear();
+        fallingBlocks.clear();
+    }
 
 }
 

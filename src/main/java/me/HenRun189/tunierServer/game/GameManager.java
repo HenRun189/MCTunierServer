@@ -334,7 +334,7 @@ public class GameManager implements Listener {
 
                 if (time <= 0) {
                     cancel();
-                    if (currentMode instanceof JumpAndRunMode || currentMode instanceof SpleefWindChargeMode || currentMode instanceof SpleefWindChargeMode) {
+                    if (currentMode instanceof JumpAndRunMode || currentMode instanceof SpleefWindChargeMode || currentMode instanceof SpleefFallingBlocks) {
                         prepareWorldsAndTeleport();
                         return;
                     }
