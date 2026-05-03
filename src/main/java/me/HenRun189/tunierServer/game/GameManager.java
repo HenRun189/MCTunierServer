@@ -240,6 +240,12 @@ public class GameManager implements Listener {
 
                 startLobbyCountdown(lower);
                 return;
+            case "spleeffallingblocks" -> {
+                currentMode = new SpleefWindChargeMode(teamManager, scoreManager);
+                scoreManager.setCurrentGame("Spleef Falling Blocks");
+
+                startLobbyCountdown(lower);
+                return;
             }
             case "pvp" -> {
                 currentMode = new PvPMode();
@@ -278,6 +284,7 @@ public class GameManager implements Listener {
             case "pvp"          -> "PvP";
             case "jumpandrun"   -> "Jump and Run";
             case "spleefwindcharge"   -> "Spleef Windcharge";
+            case "spleeffallingblocks" -> "Spleef Falling Blocks";
             case "itemcollector"-> "Item Collector";
             default             -> mode;
         };
@@ -325,7 +332,7 @@ public class GameManager implements Listener {
 
                 if (time <= 0) {
                     cancel();
-                    if (currentMode instanceof JumpAndRunMode || currentMode instanceof SpleefWindChargeMode) {
+                    if (currentMode instanceof JumpAndRunMode || currentMode instanceof SpleefWindChargeMode || currentMode instanceof SpleefWindChargeMode) {
                         prepareWorldsAndTeleport();
                         return;
                     }
@@ -357,6 +364,7 @@ public class GameManager implements Listener {
             startGameCountdown();
             return;
         }
+
         if (currentMode instanceof SpleefWindChargeMode) {
             World world = Bukkit.getWorld("windchargeworld");
             if (world == null) {
@@ -365,6 +373,19 @@ public class GameManager implements Listener {
             }
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.teleport(new Location(world, -13.7, 117, -15.7, 0f, 0f));
+            }
+            startGameCountdown();
+            return;
+        }
+
+        if (currentMode instanceof SpleefWindChargeMode) {
+            World world = Bukkit.getWorld("windchargeworld");
+            if (world == null) {
+                Bukkit.broadcast(Component.text("§cWindcharge Welt nicht gefunden!"));
+                return;
+            }
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.teleport(new Location(world, 0, 128, -39, 0f, 0f));
             }
             startGameCountdown();
             return;

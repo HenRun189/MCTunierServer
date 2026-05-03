@@ -1,4 +1,4 @@
-/*
+
 
 package me.HenRun189.tunierServer.game.modes;
 
@@ -24,8 +24,11 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     private int fallTime = 10;
     private Material fallingBlockType = Material.SANDSTONE;  // noch bestimmen !!!!!!!!!!!!
-    private Material fallActiveBlockType = Material.REDSTONE_BLOCK; // auch noch bestimmen !!!!!!!!!!
+    private Material fallActiveBlockType = Material.RED_SANDSTONE; // auch noch bestimmen !!!!!!!!!!
     private long disqualifyHight;
+    private Location spawnLoc = new Location(); // auch noch setzten etc
+    private double higthDiffernce = 8; //// 117, 112, 107...
+    private int layerAmount = 6;
 
     private TeamManager teamManager;
     private ScoreManager scoreManager;
@@ -35,7 +38,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
 
     public SpleefWindChargeMode(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
-        super(200, arg_teamManager);
+        super(300, arg_teamManager);
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
     }
@@ -49,13 +52,33 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
                 if (p == null) continue;
                 data.put(p.getUniqueId(), new PlayerData(p.getUniqueId()));
                 activePlayers.add(p.getUniqueId());
-
+                p.teleport(spawnLoc);          // ← Spawn
+                p.setInvulnerable(true);       // ← kein Damage
+                p.setHealth(20.0); // 10 Herzen
+                p.setFoodLevel(20);
             }
+        }
+
+        for (int i = 0; i < layerAmount; i++) {
+
+            Location lLoc1 = loc1.clone().subtract(0, higthDiffernce * i, 0);
+            Location lLoc2 = loc2.clone().subtract(0, higthDiffernce * i, 0);
+            fill(lLoc1, lLoc2, fallingBlockType);
         }
     }
 
-    public void start() {
+    @Override
+    protected void onGameStart() {
+        for (UUID uuid : activePlayers) {
+            Player p = data.get(uuid);
+            if (p == null) continue;
 
+            // Einfach 5 Blöcke runter von aktueller Position
+            Location drop = p.getLocation().clone().subtract(0, 5, 0);
+            p.teleport(drop);
+
+            p.setVelocity(new Vector(0, 0, 0));
+        }
     }
 
 
@@ -85,37 +108,87 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
         for (Player player : data.values) {
             if (p.getLocation().getY() < disqualifyHight && p.getGameMode() != GameMode.SPECTATOR) {
-                disqualify(player);
+                disqualify(player.getUniqueID());
             }
         }
 
     }
 
-}
 
-public class FallingBlock {
-    private Location loc;
-    private int tickTimer;
+    public void fill(Location loc1, Location loc2, Material m) {
 
-    public FallingBlock(Location arg_loc, int arg_tickTimer) {
-        loc = arg_loc;
-        tickTimer = arg_tickTimer;
-        loc.getBlock().setType(fallActiveBlockType);
+        int smallX = (int) Math.floor(Math.min(loc1.getX(), loc2.getX()));
+        int bigX = (int) Math.floor(Math.max(loc1.getX(), loc2.getX()));
+
+        int smallY = (int) Math.floor(Math.min(loc1.getY(), loc2.getY()));
+        int bigY = (int) Math.floor(Math.max(loc1.getY(), loc2.getY()));
+
+        int smallZ = (int) Math.floor(Math.min(loc1.getZ(), loc2.getZ()));
+        int bigZ = (int) Math.floor(Math.max(loc1.getZ(), loc2.getZ()));
+
+        for (int x = smallX; x <= bigX; x++) {
+            for (int y = smallY; y <= bigY; y++) {
+                for (int z = smallZ; z <= bigZ; z++) {
+                    world.getBlockAt(x,y,z).setType(m);
+                }
+            }
+        }
+
     }
 
-    public boolean newTick() {
-        tickTimer--;
-        if (tickTimer < 0) {
-            loc.getBlock().setType(Material.AIR);
-            return true;
+    @Override
+    public void handleEvent(Event event) {
+        // wird nicht benutzt
+    }
+
+
+    public class FallingBlock {
+        private Location loc;
+        private int tickTimer;
+
+        public FallingBlock(Location arg_loc, int arg_tickTimer) {
+            loc = arg_loc;
+            tickTimer = arg_tickTimer;
+            loc.getBlock().setType(fallActiveBlockType);
         }
-        else {
-            return false;
+
+        public boolean newTick() {
+            tickTimer--;
+            if (tickTimer < 0) {
+                loc.getBlock().setType(Material.AIR);
+                return true;
+            }
+            else {
+                return false;
+            }
         }
+    }
+
+    //Muss noch gemacht werden (man sollte noch am Ende noch Punkte hinzufügen aber wie muss man halt noch schauen
+    public void disqualify(UUID uuid) {
+        Player p = Bukkit.getPlayer(uuid);
+        if (p != null) {
+            p.setGameMode(GameMode.SPECTATOR);
+        }
+
+    }
+
+
+    @org.bukkit.event.EventHandler
+    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent e) {
+        e.setCancelled(true); // niemand kann Blöcke abbauen
+    }
+
+    @org.bukkit.event.EventHandler
+    public void onBlockPlace(org.bukkit.event.block.BlockPlaceEvent e) {
+        e.setCancelled(true); // niemand kann Blöcke setzen
+    }
+
+    @org.bukkit.event.EventHandler
+    public void onDamage(org.bukkit.event.entity.EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player p)) return;
+        if (!activePlayers.contains(p.getUniqueId())) return;
+        e.setCancelled(true); // kein Damage, Knockback vom Wind Charge bleibt
     }
 }
 
-//Muss noch gemacht werden
-public void disqualify(Player p) {
-
-}*/
