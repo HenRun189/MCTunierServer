@@ -22,13 +22,17 @@ import java.util.ArrayList;
 
 public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
+    private World world = Bukkit.getWorld("windchargeworld");
+
     private int fallTime = 10;
     private Material fallingBlockType = Material.SANDSTONE;  // noch bestimmen !!!!!!!!!!!!
     private Material fallActiveBlockType = Material.RED_SANDSTONE; // auch noch bestimmen !!!!!!!!!!
     private long disqualifyHight;
-    private Location spawnLoc = new Location(); // auch noch setzten etc
+    private Location spawnLoc = new Location(world, 0, 128, -91); // auch noch setzten etc
     private double higthDiffernce = 8; //// 117, 112, 107...
     private int layerAmount = 6;
+    private Location loc1 = new Location(world, 14, 118, -109);
+    private  Location loc2 = new Location(world, -13, 118, -78);
 
     private TeamManager teamManager;
     private ScoreManager scoreManager;

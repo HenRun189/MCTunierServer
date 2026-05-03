@@ -378,7 +378,7 @@ public class GameManager implements Listener {
             return;
         }
 
-        if (currentMode instanceof SpleefWindChargeMode) {
+        if (currentMode instanceof SpleefFallingBlocks) {
             World world = Bukkit.getWorld("windchargeworld");
             if (world == null) {
                 Bukkit.broadcast(Component.text("§cWindcharge Welt nicht gefunden!"));
