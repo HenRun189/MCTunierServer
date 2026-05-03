@@ -53,25 +53,21 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
 
     private Map<UUID, Player> data = new HashMap<>();
-    private ArrayList<degradingTrapdoor> currDegradingTD = new ArrayList<>();
     private Map<UUID, Integer> windchargeCooldown = new HashMap<>();
     private ArrayList<UUID> activePlayers = new ArrayList<>();
     private Map<UUID, Integer> playerLayer = new HashMap<>();
     private double degradeCoefficient;
     private double prevDegrade = 0;
-    private double totalTick = 0;
+    private ArrayList totalTick = 0;
     private double trapDoorArea;
     private TeamManager teamManager;
     private ScoreManager scoreManager;
     private final Material[] trapDoorTypes = {Material.BAMBOO_TRAPDOOR, Material.ACACIA_TRAPDOOR, Material.MANGROVE_TRAPDOOR};
 
     private int currentLayer = 0;
-    private ArrayList<degradingTrapdoor> trapdoors = new ArrayList<degradingTrapdoor>();
+    private ArrayList<TrapdoorLayer> TDLayers = new ArrayList<>(),
 
     private final Random random = new Random();
-
-    private ArrayList<degradingTrapdoor> nextLayerTrapdoors = new ArrayList<>();
-    private boolean nextLayerStarted = false;
 
 
 
@@ -134,6 +130,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             p.setVelocity(new Vector(0, 0, 0));
             windchargeCooldown.put(uuid, 0);
         }
+
+        TDLayers.put(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), loc1.clone(), loc2.clone(), world), new ArrayList<>());
+        currentLayer++;
     }
 
     @Override
@@ -142,7 +141,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         // Layer-Check Spieler
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
-            if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR) {
+            int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
+            playerLayer.put(uuid, currPlayerLayer);
+            if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR && ) {
                 double yPos = p.getLocation().getY();
                 if (yPos <= 71) {
                     disqualify(uuid);
@@ -194,57 +195,24 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             windchargeCooldown.put(uuid, prev);
         }
 
-        // Neuen Layer laden wenn alles weg
-        if (trapdoors.size() == 0 && currDegradingTD.size() == 0 && nextLayerTrapdoors.size() == 0) {
-            if (currentLayer >= layerAmount) return;
+
+        if (TDLayers.get(0).leftTD() < (0.4 * trapDoorArea)) {
+            if ((currentLayer -1) >= layerAmount) return;
             Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
             Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
-            trapdoors = fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world);
+            TDLayers.put(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world), new ArrayList<>());
             currentLayer++;
-            totalTick = 0;
-            prevDegrade = 0;
-            nextLayerStarted = false;
-            currentDepletionExp += 0.5;
-            degradeCoefficient = (currentDepletionExp + 1) * (trapDoorArea / expn(layerDepletionTime, currentDepletionExp + 1) - startDegradeSpeed / expn(layerDepletionTime, currentDepletionExp));
         }
 
-        // Paralleler Start wenn 1/6 noch übrig
-        int totalRemaining = trapdoors.size() + currDegradingTD.size();
-        if (!nextLayerStarted && totalRemaining > 0 && totalRemaining <= (int)(trapDoorArea / 6)) {
-            if (currentLayer < layerAmount) {
-                nextLayerStarted = true;
-                Location nLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
-                Location nLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
-                nextLayerTrapdoors = fillTrapDoorsArr(new ArrayList<>(), nLoc1, nLoc2, world);
+        for (int i = 0; i < TDLayers.size(); i++) {
+            TrapdoorLayer tdl = TDLayers.get(i);
+            if (tdl.leftTD() == 0) {
+                tdl.remove(i),
                 currentLayer++;
             }
         }
 
-        totalTick += 1.0;
-
-        // Degrading Trapdoors abbauen
-        for (int i = currDegradingTD.size() - 1; i >= 0; i--) {
-            if (currDegradingTD.get(i).degrade()) {
-                currDegradingTD.remove(i);
-            }
-        }
-
-        double currDegrade = ((degradeCoefficient / (currentDepletionExp + 1)) * expn(totalTick, (currentDepletionExp + 1)) + startDegradeSpeed * totalTick);
-        int newDegrade = ((int) currDegrade) - ((int) prevDegrade);
-        prevDegrade = currDegrade;
-
-        // Trapdoors in currDegradingTD verschieben – erst aktueller Layer, dann nächster
-        for (int i = 0; i < newDegrade; i++) {
-            if (trapdoors.size() > 0) {
-                int indexTP = random.nextInt(trapdoors.size());
-                currDegradingTD.add(trapdoors.get(indexTP));
-                trapdoors.remove(indexTP);
-            } else if (nextLayerTrapdoors.size() > 0) {
-                int indexTP = random.nextInt(nextLayerTrapdoors.size());
-                currDegradingTD.add(nextLayerTrapdoors.get(indexTP));
-                nextLayerTrapdoors.remove(indexTP);
-            }
-        }
+        totalTick++;
     }
 
 
@@ -305,6 +273,50 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
         return arg_trapdoors;
     }
+
+
+
+    private class TrapdoorLayer {
+        private ArrayList<degradingTrapdoor> trapdoors = new ArrayList<degradingTrapdoor>();
+        private ArrayList<degradingTrapdoor> currDegradingTD = new ArrayList<>();
+        private double currTick;
+        private double prevDegrade;
+
+        TrapdoorLayer(ArrayList<degradingTrapdoor> arg_trapdoors, ArrayList<degradingTrapdoor> arg_currDegradingTD) {
+            trapdoors = arg_trapdoors;
+            currDegradingTD = arg_currDegradingTD;
+            currTick += 1.0;
+            prevDegrade = 0;
+        }
+
+        public boolean degrade() {
+
+            for (int i = currDegradingTD.size() - 1; i >= 0; i--) {
+                if (currDegradingTD.get(i).degrade()) {
+                    currDegradingTD.remove(i);
+                }
+            }
+
+            double currDegrade = ((degradeCoefficient / (currentDepletionExp + 1)) * expn(currTick, (currentDepletionExp + 1)) + startDegradeSpeed * currTick);
+            int newDegrade = ((int) currDegrade) - ((int) prevDegrade);
+            prevDegrade = currDegrade;
+
+            for (int i = 0; i < newDegrade; i++) {
+                if (trapdoors.size() > 0) {
+                    int indexTP = random.nextInt(trapdoors.size());
+                    currDegradingTD.add(trapdoors.get(indexTP));
+                    trapdoors.remove(indexTP);
+                }
+            }
+
+        }
+
+        public int leftTD() {
+            return (trapdoors.size() + currDegradingTD.size());
+        }
+    }
+
+
 
     private class degradingTrapdoor {
         private int ticks;
