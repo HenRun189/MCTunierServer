@@ -51,6 +51,8 @@ public class GameManager implements Listener {
     private static final int JR_MAX_Z = 2;
 
     private final Set<UUID> frozenPlayers = new HashSet<>();
+    private Map<UUID, double> frozenHealth = new HashMap<>();
+    private Map<UUID, double> frozenHunger = new HashMap<>();
     private boolean paused = false;
 
     public boolean isPaused()             { return paused; }
@@ -173,8 +175,16 @@ public class GameManager implements Listener {
     //  FREEZE
     // ══════════════════════════════════════════════════════════════
 
-    public void freezePlayer(Player p)   { frozenPlayers.add(p.getUniqueId()); }
-    public void unfreezePlayer(Player p) { frozenPlayers.remove(p.getUniqueId()); }
+    public void freezePlayer(Player p)   {
+        frozenPlayers.add(p.getUniqueId());
+        frozenHealth.put(p.getUniqueID(), p.getHealth());
+        frozenHunger.put(p.getUniqueID(), p.getFoodLevel());
+    }
+    public void unfreezePlayer(Player p) {
+        frozenPlayers.remove(p.getUniqueId());
+        frozenHealth.remove(p.getUniqueId());
+        frozenHunger.remove(p.getUniqueId());
+    }
     public boolean isFrozen(Player p)    { return frozenPlayers.contains(p.getUniqueId()); }
     public void freezeAll()              { Bukkit.getOnlinePlayers().forEach(this::freezePlayer); }
     public void unfreezeAll()            { frozenPlayers.clear(); }
@@ -635,6 +645,8 @@ public class GameManager implements Listener {
             e.setTo(new Location(from.getWorld(), from.getX(), from.getY(), from.getZ(),
                     to.getYaw(), to.getPitch()));
             // ← diese Zeile hinzufügen:
+            p.getHealth(frozenHealth.get(p.getUniqueID()));
+            p.setFoodLevel(frozenHunger.get(p.getUniqueID()));
             p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             return;
         }
