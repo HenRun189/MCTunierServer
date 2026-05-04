@@ -191,7 +191,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
 
 
-        if (TDLayers.get(0).leftTD() < (0.4 * trapDoorArea)) {
+        if (TDLayers.get(0).leftTD() < (0.4 * double(trapDoorArea))) {
             if ((currentLayer -1) >= layerAmount) return;
             Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
             Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
@@ -203,7 +203,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             TrapdoorLayer tdl = TDLayers.get(i);
             if (tdl.leftTD() == 0) {
                 TDLayers.remove(i);
-                currentLayer++;
             }
             else {
                 tdl.degrade();
@@ -288,6 +287,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
 
         public void degrade() {
+
+            currTick++;
 
             for (int i = currDegradingTD.size() - 1; i >= 0; i--) {
                 if (currDegradingTD.get(i).degrade()) {
