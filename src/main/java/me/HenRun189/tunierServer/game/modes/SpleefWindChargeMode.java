@@ -143,15 +143,20 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     @Override
     protected void onGameTick() {
 
+        List<UUID> toDisqualify = new ArrayList<>();
+
         // Layer-Check Spieler
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
+            if (p == null) continue;
+
             double yPos = p.getLocation().getY();
             int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
             playerLayer.put(uuid, currPlayerLayer);
+
             if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR) {
                 if (yPos <= 71) {
-                    disqualify(uuid);
+                    toDisqualify.add(uuid);
                 } else {
                     currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
                     playerLayer.put(uuid, currPlayerLayer);
@@ -159,7 +164,11 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             }
         }
 
-        if (activePlayers.size() == 1) {
+        for (UUID uuid : toDisqualify) {
+            disqualify(uuid);
+        }
+
+        if (activePlayers.size() <= 1) {
             TunierServer.getInstance().getGameManager().stopGame();
             return;
         }
@@ -170,7 +179,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             if (p == null) continue;
             if (p.getGameMode() == GameMode.CREATIVE || p.getGameMode() == GameMode.SPECTATOR) continue;
 
-            int prev = windchargeCooldown.get(uuid) + 1;
+            int prev = windchargeCooldown.getOrDefault(uuid, 0) + 1;
             boolean hasCharge = p.getInventory().contains(Material.WIND_CHARGE);
 
             if (!hasCharge) {
@@ -192,38 +201,40 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             windchargeCooldown.put(uuid, prev);
         }
 
-
-        // Wenn es keine Layer gibt, früh raus
         if (TDLayers.isEmpty()) {
             return;
         }
 
-        if (TDLayers.isEmpty() || currDepletingL < 0 || currDepletingL >= TDLayers.size()) {
-            return; // oder sinnvolle Fallback-Logik
+        if (currDepletingL < 0 || currDepletingL >= TDLayers.size()) {
+            return;
         }
 
         if (TDLayers.get(currDepletingL).leftTD() < (0.4 * trapDoorArea)) {
-            if ((currentLayer -1) >= layerAmount) return;
-            Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
-            Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
-            TDLayers.add(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world), new ArrayList<>()));
-            currentLayer++;
-            currDepletingL++;
+            if ((currentLayer - 1) < layerAmount) {
+                Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
+                Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
+                TDLayers.add(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world), new ArrayList<>()));
+                currentLayer++;
+                currDepletingL++;
+            }
         }
 
-        for (int i = 0; i < TDLayers.size(); i++) {
+        for (int i = TDLayers.size() - 1; i >= 0; i--) {
             TrapdoorLayer tdl = TDLayers.get(i);
             if (tdl.leftTD() == 0) {
                 TDLayers.remove(i);
-                currDepletingL--;
-            }
-            else {
+                if (currDepletingL > i) {
+                    currDepletingL--;
+                }
+            } else {
                 tdl.degrade();
             }
         }
 
+        if (!TDLayers.isEmpty() && currDepletingL >= TDLayers.size()) {
+            currDepletingL = TDLayers.size() - 1;
+        }
     }
-
 
     @Override
     public List<TeamData> getRanking() {
@@ -418,6 +429,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     @Override
     public void stop() {
+        super.stop();
         HandlerList.unregisterAll(this);
 
         activePlayers.clear();
