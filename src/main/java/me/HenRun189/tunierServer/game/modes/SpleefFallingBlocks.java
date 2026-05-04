@@ -75,6 +75,8 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     @Override
     protected void onGameStart() {
+
+        disqualifyHight = 71;
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
             if (p == null) continue;
@@ -105,6 +107,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         }
     }
 
+    @Override
     protected void onGameTick() {
 
         for (int i = fallingBlocks.size() - 1; i >= 0; i--) {
@@ -113,12 +116,24 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
             }
         }
 
-        for (Player player : data.values()) {
+        List<UUID> toDisqualify = new ArrayList<>();
+
+        for (UUID uuid : activePlayers) {
+            Player player = data.get(uuid);
+            if (player == null) continue;
+
             if (player.getLocation().getY() < disqualifyHight && player.getGameMode() != GameMode.SPECTATOR) {
-                disqualify(player.getUniqueId());
+                toDisqualify.add(uuid);
             }
         }
 
+        for (UUID uuid : toDisqualify) {
+            disqualify(uuid);
+        }
+
+        if (activePlayers.size() <= 1) {
+            TunierServer.getInstance().getGameManager().stopGame();
+        }
     }
 
 
@@ -167,15 +182,6 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         }
     }
 
-    //Muss noch gemacht werden (man sollte noch am Ende noch Punkte hinzufügen aber wie muss man halt noch schauen
-    public void disqualify(UUID uuid) {
-        Player p = Bukkit.getPlayer(uuid);
-        if (p != null) {
-            p.setGameMode(GameMode.SPECTATOR);
-        }
-
-    }
-
 
     @org.bukkit.event.EventHandler
     public void onDamage(org.bukkit.event.entity.EntityDamageEvent e) {
@@ -213,8 +219,18 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         // wird nicht benutzt
     }
 
+    public void disqualify(UUID uuid) {
+        activePlayers.remove(uuid);
+
+        Player p = Bukkit.getPlayer(uuid);
+        if (p != null) {
+            p.setGameMode(GameMode.SPECTATOR);
+        }
+    }
+
     @Override
     public void stop() {
+        super.stop();
         HandlerList.unregisterAll(this);
 
         activePlayers.clear();
