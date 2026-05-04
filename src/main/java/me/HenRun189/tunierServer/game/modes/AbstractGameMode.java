@@ -33,13 +33,12 @@ public abstract class AbstractGameMode implements GameMode {
 
             boolean started = false;
             int pauseTick = 0;
+            int secondTick = 0;
 
             @Override
             public void run() {
 
-                // Pause
                 if (TunierServer.getInstance().getGameManager().isPaused()) {
-
                     pauseTick++;
 
                     if (pauseTick % 20 == 0) {
@@ -47,36 +46,44 @@ public abstract class AbstractGameMode implements GameMode {
                             p.sendActionBar(Component.text("§c⏸ PAUSIERT"));
                         }
                     }
-
                     return;
                 }
 
-                // GAME START (OHNE EXTRA COUNTDOWN)
+                pauseTick = 0;
+
                 if (!started) {
                     started = true;
                     onGameStart();
                     return;
                 }
 
-                // GAME LOOP
-                time--;
-
+                // jede Tick
                 onGameTick();
-                updateActionbar();
 
-                if (time == 300) broadcast("§e5 minutes left!");
-                if (time == 60) broadcast("§c1 minute left!");
+                // jede Sekunde
+                secondTick++;
+                if (secondTick >= 20) {
+                    secondTick = 0;
 
-                if (time <= 10 && time > 0) {
-                    broadcast("§cNoch " + time + " Sekunden!");
-                }
+                    onSecond();
 
-                if (time <= 0) {
-                    TunierServer.getInstance().getGameManager().stopGame();
+                    time--;
+                    updateActionbar();
+
+                    if (time == 300) broadcast("§e5 minutes left!");
+                    if (time == 60) broadcast("§c1 minute left!");
+
+                    if (time <= 10 && time > 0) {
+                        broadcast("§cNoch " + time + " Sekunden!");
+                    }
+
+                    if (time <= 0) {
+                        TunierServer.getInstance().getGameManager().stopGame();
+                    }
                 }
             }
 
-        }, 0, 20).getTaskId();
+        }, 0L, 1L).getTaskId();
     }
 
     @Override
@@ -92,7 +99,6 @@ public abstract class AbstractGameMode implements GameMode {
         if (!ranking.isEmpty()) {
 
             int bestScore = getPoints(ranking.get(0).getName());
-
             List<String> winners = new ArrayList<>();
 
             for (TeamData t : ranking) {
@@ -101,12 +107,10 @@ public abstract class AbstractGameMode implements GameMode {
                 }
             }
 
-
             for (Player p : Bukkit.getOnlinePlayers()) {
 
                 TeamData team = null;
 
-                // WICHTIG: Team holen (je nach System)
                 if (teamManager != null) {
                     team = teamManager.getTeamByPlayer(p.getUniqueId());
                 }
@@ -133,7 +137,6 @@ public abstract class AbstractGameMode implements GameMode {
 
                 p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
             }
-
         }
 
         Bukkit.broadcast(Component.text("§6§lRanking :"));
@@ -145,8 +148,6 @@ public abstract class AbstractGameMode implements GameMode {
                             " §7- §a" + getPoints(t.getName())
             ));
         }
-
-        //Bukkit.broadcast(Component.text("§cGame ended!"));
     }
 
     protected void broadcast(String msg) {
@@ -163,9 +164,12 @@ public abstract class AbstractGameMode implements GameMode {
         }
     }
 
-    // ABSTRACTS
     protected abstract void onGameStart();
     protected abstract void onGameTick();
+
+    protected void onSecond() {
+    }
+
     protected abstract List<TeamData> getRanking();
     protected abstract int getPoints(String teamName);
 }

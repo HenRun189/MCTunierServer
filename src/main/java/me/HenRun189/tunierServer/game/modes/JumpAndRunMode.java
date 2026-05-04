@@ -200,34 +200,65 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
     }
 
     // ─────────────────────────────────────────────
-    // GAME TICK
+    // GAME LOOP
     // ─────────────────────────────────────────────
 
     @Override
     protected void onGameTick() {
 
-        // ── Ende-Bedingung (nur einmal auslösen) ────────────────────────────
-        // Bedingungen:
-        //   • alle aktiven Spieler haben die Runde beendet  ODER
-        //   • Zeit abgelaufen UND mindestens 1 Spieler im Ziel
         boolean allFinished = activePlayerAmount > 0 && rankings.size() >= activePlayerAmount;
-        boolean timeAndOne  = timeExpired && rankings.size() >= 1;
-// timeExpired wird erst true wenn 20min um sind → passt bereits
+        boolean timeAndOne = timeExpired && rankings.size() >= 1;
 
         if (!stopping && (allFinished || timeAndOne)) {
             stopping = true;
             showEndRanking();
-            Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(),
-                    () -> gameManager.stopGame(), 100L);
+            Bukkit.getScheduler().runTaskLater(
+                    TunierServer.getInstance(),
+                    () -> gameManager.stopGame(),
+                    100L
+            );
             return;
         }
 
-        // ── BossBar-Timer ────────────────────────────────────────────────────
-        long elapsed   = gameStartTime > 0 ? System.currentTimeMillis() - gameStartTime : 0;
+        World world = Bukkit.getWorld(WORLD_NAME);
+        if (world == null) return;
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (!p.getWorld().equals(world)) continue;
+
+            if (teamManager.getTeamByPlayer(p.getUniqueId()) == null) {
+                if (visibilityManager.isActive() && !visibilityManager.isKnownSpectator(p)) {
+                    visibilityManager.registerExternalSpectator(p);
+                }
+                continue;
+            }
+
+            PlayerData pd = data.get(p.getUniqueId());
+            if (pd == null) continue;
+
+            if (p.getLocation().getY() < 55 && p.getGameMode() != GameMode.SPECTATOR) {
+                resetPlayer(p, pd);
+                p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
+            }
+
+            int place = getPlayerPlace(p);
+            p.sendActionBar(Component.text(
+                    "§7Platz §e#" + place + "§7/§e" + activePlayerAmount +
+                            " §8| §7CP §e" + pd.getCheckpoint() + "§7/§e" + TOTAL_CHECKPOINTS +
+                            " §8| §cFalls: " + pd.getFalls()
+            ));
+
+            p.setFoodLevel(20);
+            p.setSaturation(20);
+        }
+    }
+
+    @Override
+    protected void onSecond() {
+        long elapsed = gameStartTime > 0 ? System.currentTimeMillis() - gameStartTime : 0;
         long totalMs = GAME_DURATION_MS;
         long remaining = Math.max(0, totalMs - elapsed);
 
-        // Zeit-abgelaufen Check
         if (gameStartTime > 0 && !timeExpired && elapsed >= GAME_DURATION_MS) {
             timeExpired = true;
             Bukkit.broadcastMessage("§cZeit abgelaufen! Erster der ins Ziel kommt, beendet das Spiel!");
@@ -241,48 +272,16 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
             } else {
                 long secs = remaining / 1000;
                 long mins = secs / 60;
-                long s    = secs % 60;
+                long s = secs % 60;
                 String color = remaining < 60_000 ? "§c" : remaining < 5 * 60_000 ? "§e" : "§a";
+
                 timerBar.setTitle("§6Jump & Run §8| " + color + String.format("%02d:%02d", mins, s));
                 timerBar.setProgress(Math.max(0.0, Math.min(1.0, (double) remaining / totalMs)));
-                if      (remaining < 60_000)     timerBar.setColor(BarColor.RED);
+
+                if (remaining < 60_000) timerBar.setColor(BarColor.RED);
                 else if (remaining < 5 * 60_000) timerBar.setColor(BarColor.YELLOW);
-                else                             timerBar.setColor(BarColor.GREEN);
+                else timerBar.setColor(BarColor.GREEN);
             }
-        }
-
-        // ── Spieler-Loop ─────────────────────────────────────────────────────
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            World world = Bukkit.getWorld(WORLD_NAME);
-            if (!p.getWorld().equals(world)) continue;
-
-            // Kein Team = Caster → nur einmal als Spectator registrieren
-            if (teamManager.getTeamByPlayer(p.getUniqueId()) == null) {
-                if (visibilityManager.isActive() && !visibilityManager.isKnownSpectator(p)) {
-                    visibilityManager.registerExternalSpectator(p);
-                }
-                continue; // kein PlayerData für Caster
-            }
-
-            PlayerData pd = data.get(p.getUniqueId());
-            if (pd == null) continue;
-
-            // Void-Reset
-            if (p.getLocation().getY() < 55 && p.getGameMode() != GameMode.SPECTATOR) {
-                resetPlayer(p, pd);
-                p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
-            }
-
-            // ActionBar: NUR Platz, Checkpoint und Falls – KEINE Zeit
-            int place = getPlayerPlace(p);
-            p.sendActionBar(Component.text(
-                    "§7Platz §e#" + place + "§7/§e" + activePlayerAmount +
-                            " §8| §7CP §e" + pd.getCheckpoint() + "§7/§e" + TOTAL_CHECKPOINTS +
-                            " §8| §cFalls: " + pd.getFalls()
-            ));
-
-            p.setFoodLevel(20);
-            p.setSaturation(20);
         }
     }
 

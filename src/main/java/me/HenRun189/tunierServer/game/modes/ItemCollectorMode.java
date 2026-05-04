@@ -50,7 +50,11 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
 
     @Override
     protected void onGameTick() {
+        // nichts pro Tick nötig
+    }
 
+    @Override
+    protected void onSecond() {
         double maxTime = 1200.0;
 
         int minutes = time / 60;
@@ -59,9 +63,8 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
         String timeString = String.format("%02d:%02d", minutes, seconds);
 
         bossBar.setTitle("§bItem Race §7| §e" + timeString);
-        bossBar.setProgress(Math.max(0, time / maxTime));
+        bossBar.setProgress(Math.max(0, (double) time / maxTime));
     }
-
     @EventHandler
     public void onPickup(EntityPickupItemEvent e) {
         if (!(e.getEntity() instanceof Player p)) return;

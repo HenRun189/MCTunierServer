@@ -176,32 +176,35 @@ public class PvPMode extends AbstractGameMode implements Listener {
     protected void onGameTick() {
         if (world == null) return;
 
+        checkWinCondition();
+    }
+
+    @Override
+    protected void onSecond() {
+        if (world == null) return;
+
         int elapsed = TOTAL_SECONDS - time;
 
         updateTimerBar();
 
-        // Survival-Punkte alle 15 Sek
         survivalTick++;
         if (survivalTick >= 15) {
             survivalTick = 0;
             giveSurvivalPoints();
         }
 
-        // Border Phase 1: nach 5 min → Radius 230 → 75 in 10 min
         if (!phase1Started && elapsed >= BORDER_PHASE1_START_SEC) {
             phase1Started = true;
-            border.changeSize(150, 600L); // Durchmesser 150 = Radius 75, 600 Sek
+            border.changeSize(150, 600L);
             Bukkit.broadcast(Component.text("§c§lDie Border verkleinert sich! §7(→ Radius 75 in 10 min)"));
         }
 
-        // Border Phase 2: bei 13 min → Radius 75 → 5 in 90 Sek (fertig 30s vor Ende)
         if (!phase2Started && elapsed >= BORDER_PHASE2_START_SEC) {
             phase2Started = true;
-            border.changeSize(10, 90L); // Durchmesser 10 = Radius 5, 90 Sek
+            border.changeSize(10, 90L);
             Bukkit.broadcast(Component.text("§4§lACHTUNG! §cBorder → 5 Blöcke! §7(fertig 30s vor Ende)"));
         }
 
-        // Grace Period: erste 20 Sek Invulnerable aufheben
         if (elapsed == 20) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.setInvulnerable(false);
@@ -209,8 +212,6 @@ public class PvPMode extends AbstractGameMode implements Listener {
             }
             Bukkit.broadcast(Component.text("§c§lPvP ist jetzt aktiv!"));
         }
-
-        checkWinCondition();
     }
 
     // ══════════════════════════════════════════════════════════════

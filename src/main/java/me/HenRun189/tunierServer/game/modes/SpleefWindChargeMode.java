@@ -157,9 +157,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR) {
                 if (yPos <= 71) {
                     toDisqualify.add(uuid);
-                } else {
-                    currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
-                    playerLayer.put(uuid, currPlayerLayer);
                 }
             }
         }
@@ -185,14 +182,14 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             if (!hasCharge) {
                 float progress = (float) prev / extraWindchargeCooldown;
                 p.setExp(Math.min(progress, 1.0f));
-                p.setLevel(extraWindchargeCooldown - prev);
+                p.setLevel(Math.max(0, extraWindchargeCooldown - prev));
             } else {
                 p.setExp(0f);
                 p.setLevel(0);
             }
 
             if (prev >= extraWindchargeCooldown) {
-                if (!p.getInventory().contains(Material.WIND_CHARGE)) {
+                if (!hasCharge) {
                     p.getInventory().addItem(new ItemStack(Material.WIND_CHARGE));
                 }
                 prev = 0;
@@ -213,7 +210,10 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             if ((currentLayer - 1) < layerAmount) {
                 Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
                 Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
-                TDLayers.add(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world), new ArrayList<>()));
+                TDLayers.add(new TrapdoorLayer(
+                        fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world),
+                        new ArrayList<>()
+                ));
                 currentLayer++;
                 currDepletingL++;
             }
@@ -235,6 +235,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             currDepletingL = TDLayers.size() - 1;
         }
     }
+
 
     @Override
     public List<TeamData> getRanking() {

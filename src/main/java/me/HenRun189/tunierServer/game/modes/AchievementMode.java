@@ -114,18 +114,21 @@ public class AchievementMode extends AbstractGameMode implements Listener {
 
     @Override
     protected void onGameTick() {
+        // nichts pro Tick nötig
+    }
 
+    @Override
+    protected void onSecond() {
         double maxTime = 1500.0;
 
         for (TeamData team : teamManager.getTeams().values()) {
-
             BossBar bar = teamBossBars.get(team.getName());
             if (bar == null) continue;
 
             String adv = currentAdvancement.get(team.getName());
             if (adv == null) continue;
 
-            bar.setProgress(Math.max(0, time / maxTime));
+            bar.setProgress(Math.max(0, (double) time / maxTime));
             bar.setTitle("§a" + achievementManager.getDisplayName(adv));
         }
     }
