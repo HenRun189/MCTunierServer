@@ -66,7 +66,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     private int currentLayer = 0;
     private ArrayList<TrapdoorLayer> TDLayers = new ArrayList<>();
-    private long currDepletingL = 0;
+    private int currDepletingL = 0;
 
     private final Random random = new Random();
 
@@ -193,7 +193,16 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
 
 
-        if (TDLayers.get(0).leftTD() < (0.4 * trapDoorArea)) {
+        // Wenn es keine Layer gibt, früh raus
+        if (TDLayers.isEmpty()) {
+            return;
+        }
+
+        if (TDLayers.isEmpty() || currDepletingL < 0 || currDepletingL >= TDLayers.size()) {
+            return; // oder sinnvolle Fallback-Logik
+        }
+
+        if (TDLayers.get(currDepletingL).leftTD() < (0.4 * trapDoorArea)) {
             if ((currentLayer -1) >= layerAmount) return;
             Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
             Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
