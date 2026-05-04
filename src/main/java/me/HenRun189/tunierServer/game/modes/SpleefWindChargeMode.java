@@ -290,6 +290,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
             currTick++;
 
+
             for (int i = currDegradingTD.size() - 1; i >= 0; i--) {
                 if (currDegradingTD.get(i).degrade()) {
                     currDegradingTD.remove(i);
