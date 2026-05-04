@@ -58,7 +58,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
     private static final int BORDER_PHASE1_START_SEC = 300; // 5 min
     private static final int BORDER_PHASE2_START_SEC = 780; // 13 min
-    private static final int TOTAL_SECONDS           = 15 * 60;
+    private static final int TOTAL_SECONDS           = 20 * 60;
 
     private boolean phase1Started = false;
     private boolean phase2Started = false;
@@ -133,6 +133,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
 
             preparePlayer(p);
+            p.setInvulnerable(true);
             timerBar.addPlayer(p);
         }
 
@@ -186,11 +187,11 @@ public class PvPMode extends AbstractGameMode implements Listener {
             giveSurvivalPoints();
         }
 
-        // Border Phase 1: nach 5 min → Radius 230 → 75 in 5 min
+        // Border Phase 1: nach 5 min → Radius 230 → 75 in 10 min
         if (!phase1Started && elapsed >= BORDER_PHASE1_START_SEC) {
             phase1Started = true;
-            border.changeSize(150, 300L); // Durchmesser 150 = Radius 75, 300 Sek
-            Bukkit.broadcast(Component.text("§c§lDie Border verkleinert sich! §7(→ Radius 75 in 5 min)"));
+            border.changeSize(150, 600L); // Durchmesser 150 = Radius 75, 600 Sek
+            Bukkit.broadcast(Component.text("§c§lDie Border verkleinert sich! §7(→ Radius 75 in 10 min)"));
         }
 
         // Border Phase 2: bei 13 min → Radius 75 → 5 in 90 Sek (fertig 30s vor Ende)
@@ -198,6 +199,15 @@ public class PvPMode extends AbstractGameMode implements Listener {
             phase2Started = true;
             border.changeSize(10, 90L); // Durchmesser 10 = Radius 5, 90 Sek
             Bukkit.broadcast(Component.text("§4§lACHTUNG! §cBorder → 5 Blöcke! §7(fertig 30s vor Ende)"));
+        }
+
+        // Grace Period: erste 20 Sek Invulnerable aufheben
+        if (elapsed == 20) {
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.setInvulnerable(false);
+                p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
+            }
+            Bukkit.broadcast(Component.text("§c§lPvP ist jetzt aktiv!"));
         }
 
         checkWinCondition();
@@ -210,8 +220,8 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
     @Override
     protected void updateActionbar() {
-        // Gesamtzahl lebender Spieler
         int totalAlive = 0;
+        int totalParticipants = killCount.size(); // Gesamtzahl aller Teilnehmer
         for (UUID uuid : alivePlayers) {
             Player pl = Bukkit.getPlayer(uuid);
             if (pl != null && pl.isOnline() && !pl.isDead() && pl.getGameMode() != GameMode.SPECTATOR)
@@ -223,28 +233,10 @@ public class PvPMode extends AbstractGameMode implements Listener {
             boolean isAlive = alivePlayers.contains(p.getUniqueId())
                     && p.getGameMode() != GameMode.SPECTATOR;
 
-            // Team-Info berechnen
-            TeamData myTeam = teamManager.getTeamByPlayer(p.getUniqueId());
-            String teamInfo = "";
-            if (myTeam != null) {
-                int teamAlive = 0;
-                int teamTotal = myTeam.getPlayers().size();
-                for (UUID uuid : myTeam.getPlayers()) {
-                    if (!alivePlayers.contains(uuid)) continue;
-                    Player pl = Bukkit.getPlayer(uuid);
-                    if (pl != null && pl.isOnline() && !pl.isDead() && pl.getGameMode() != GameMode.SPECTATOR)
-                        teamAlive++;
-                }
-                int tKills = teamKillCount.getOrDefault(myTeam.getName(), 0);
-                teamInfo = " §8| §bTeam: §f" + teamAlive + "§7/§f" + teamTotal
-                        + " §8| §bTeam-Kills: §f" + tKills;
-            }
-
             p.sendActionBar(Component.text(
-                    (isAlive ? "§a● Leben" : "§c● Zuschauer") +
+                    //(isAlive ? "§a● Leben" : "§c● Zuschauer") +
                             " §8| §c⚔ " + myKills + " Kills" +
-                            teamInfo +
-                            " §8| §e" + totalAlive + " übrig"
+                            " §8| §e" + totalAlive + "§7/§e" + totalParticipants + " übrig"
             ));
         }
     }
@@ -362,7 +354,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
                 default -> "  §8" + (shown + 1) + ".";
             };
             Bukkit.broadcast(Component.text(medal + " §f" + name + tTag
-                    + " §8| §c" + kills + " Kills §8| §eK/D: " + kd));
+                    + " §8| §c" + kills + " Kills §8")); //| §eK/D: " + kd
             shown++;
         }
         if (shown == 0) Bukkit.broadcast(Component.text("§7  Keine Kills in diesem Spiel."));
