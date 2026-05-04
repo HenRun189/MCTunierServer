@@ -64,10 +64,10 @@ public abstract class AbstractGameMode implements GameMode {
                 onGameTick();
                 updateActionbar();
 
-                if (time == 300) broadcast("§e5 minutes left!");
-                if (time == 60) broadcast("§c1 minute left!");
+                if (time == 300 * 20) broadcast("§e5 minutes left!");
+                if (time == 60 * 20) broadcast("§c1 minute left!");
 
-                if (time <= 10 && time > 0) {
+                if (time <= 10 * 20 && time > 0) {
                     broadcast("§cNoch " + time + " Sekunden!");
                 }
 
@@ -76,7 +76,7 @@ public abstract class AbstractGameMode implements GameMode {
                 }
             }
 
-        }, 0, 20).getTaskId();
+        }, 0, 1).getTaskId();
     }
 
     @Override
@@ -154,8 +154,8 @@ public abstract class AbstractGameMode implements GameMode {
     }
 
     protected void updateActionbar() {
-        int minutes = time / 60;
-        int seconds = time % 60;
+        int minutes = time / (60*20);
+        int seconds = time % (60*20);
         String timeString = String.format("%02d:%02d", minutes, seconds);
 
         for (Player p : Bukkit.getOnlinePlayers()) {

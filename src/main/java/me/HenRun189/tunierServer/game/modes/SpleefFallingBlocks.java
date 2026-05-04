@@ -44,7 +44,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
 
     public SpleefFallingBlocks(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
-        super(300, arg_teamManager);
+        super(300 * 20, arg_teamManager);
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
     }
