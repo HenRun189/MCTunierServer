@@ -140,6 +140,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         currentLayer++;
     }
 
+    //GameLoop
+
     @Override
     protected void onGameTick() {
 
