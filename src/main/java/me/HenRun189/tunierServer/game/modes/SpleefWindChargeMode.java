@@ -66,6 +66,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     private int currentLayer = 0;
     private ArrayList<TrapdoorLayer> TDLayers = new ArrayList<>();
+    private long currDepletingL = 0;
 
     private final Random random = new Random();
 
@@ -81,6 +82,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     }
 
     public void preGame(Collection<Player> players) {
+        currDepletingL = 0;
         for (TeamData team : teamManager.getTeams().values()) {
             for (UUID uuid : team.getPlayers()) {
                 Player p = Bukkit.getPlayer(uuid);
@@ -191,19 +193,20 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
 
 
-        if (TDLayers.get(0).leftTD() < (0.4 * double(trapDoorArea))) {
+        if (TDLayers.get(0).leftTD() < (0.4 * trapDoorArea)) {
             if ((currentLayer -1) >= layerAmount) return;
             Location olLoc1 = loc1.clone().subtract(0, higthDiffernce * currentLayer, 0);
             Location olLoc2 = loc2.clone().subtract(0, higthDiffernce * currentLayer, 0);
             TDLayers.add(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), olLoc1, olLoc2, world), new ArrayList<>()));
             currentLayer++;
+            currDepletingL++;
         }
 
         for (int i = 0; i < TDLayers.size(); i++) {
             TrapdoorLayer tdl = TDLayers.get(i);
             if (tdl.leftTD() == 0) {
                 TDLayers.remove(i);
-
+                currDepletingL--;
             }
             else {
                 tdl.degrade();
