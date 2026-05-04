@@ -44,7 +44,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
 
     public SpleefFallingBlocks(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
-        super(300 * 20, arg_teamManager);
+        super(300, arg_teamManager);
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
     }
@@ -96,7 +96,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         Player p = e.getPlayer();
 
         Location loc = e.getTo();
-        Location bLoc = loc.clone().subtract(0, 1, 0);
+        Location bLoc = loc.clone().subtract(0, 0.6, 0);
         Block block = bLoc.getBlock();
 
         if (block.getType() == fallingBlockType) {
