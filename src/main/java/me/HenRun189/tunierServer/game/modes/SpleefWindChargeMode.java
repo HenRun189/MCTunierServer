@@ -45,11 +45,11 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private int layerAmount = 6;
     private double currentDepletionExp = 1; // startet bei 1.5, wird pro Layer größer
     private double startDegradeSpeed = 2;        // langsam anfangen
-    private double layerDepletionTime = 45;      // in GameTicks (Sekunden), Layer 1 nach ~30 Sek weg
-    private double depletionExp = 3;             // stark exponenziell
-    private long degradeTime = 2;               // 2 Sek pro Stufe
-    private long deleteTime = 1;                // 1 Sek bis Luft
-    private int extraWindchargeCooldown = 2; //für 2 sek
+    private double layerDepletionTime = 45 * 20;      // in GameTicks (Sekunden), Layer 1 nach ~30 Sek weg
+    private double depletionExp = 3 * 20;             // stark exponenziell
+    private long degradeTime = 2 * 20;               // 2 Sek pro Stufe
+    private long deleteTime = 1 * 20;                // 1 Sek bis Luft
+    private int extraWindchargeCooldown = 2 * 20; //für 2 sek
 
 
     private Map<UUID, Player> data = new HashMap<>();
@@ -76,7 +76,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
 
     public SpleefWindChargeMode(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
-        super(250, arg_teamManager);  //250 für 4min
+        super(250 * 20, arg_teamManager);  //250 für 4min
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
     }

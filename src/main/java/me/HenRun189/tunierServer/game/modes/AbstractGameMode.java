@@ -38,7 +38,9 @@ public abstract class AbstractGameMode implements GameMode {
             @Override
             public void run() {
 
+                // Pause
                 if (TunierServer.getInstance().getGameManager().isPaused()) {
+
                     pauseTick++;
 
                     if (pauseTick % 20 == 0) {
@@ -46,6 +48,7 @@ public abstract class AbstractGameMode implements GameMode {
                             p.sendActionBar(Component.text("§c⏸ PAUSIERT"));
                         }
                     }
+
                     return;
                 }
 
