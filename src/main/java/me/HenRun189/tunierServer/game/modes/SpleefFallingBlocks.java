@@ -96,19 +96,20 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         Player p = e.getPlayer();
 
         Location loc = e.getTo();
-        Block block = loc.clone().subtract(0, 1, 0).getBlock();
+        Location bLoc = loc.clone().subtract(0, 1, 0);
+        Block block = bLoc.getBlock();
 
         if (block.getType() == fallingBlockType) {
-            FallingBlock newFB = new FallingBlock(loc, fallTime);
+            FallingBlock newFB = new FallingBlock(bLoc, fallTime);
             fallingBlocks.add(newFB);
         }
     }
 
     protected void onGameTick() {
 
-        for (int i = 0; i < fallingBlocks.size(); i++) {
+        for (int i = fallingBlocks.size() - 1; i >= 0; i--) {
             if (fallingBlocks.get(i).newTick()) {
-               fallingBlocks.remove(i);
+                fallingBlocks.remove(i);
             }
         }
 

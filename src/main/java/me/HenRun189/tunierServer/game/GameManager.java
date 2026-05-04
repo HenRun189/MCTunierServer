@@ -559,6 +559,28 @@ public class GameManager implements Listener {
             return;
         }
 
+        if (currentMode instanceof SpleefFallingBlocks jnrMode) {
+            final List<Player> participants = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers())
+                if (p.getWorld().getName().equals("windchargeworld")) participants.add(p);
+            jnrMode.preGame(participants);
+            Bukkit.getPluginManager().registerEvents(jnrMode, TunierServer.getInstance());
+
+            new BukkitRunnable() {
+                int time = 15;
+                @Override public void run() {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+                        if (time <= 10 && time > 0) p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        if (time == 0)              p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+                    }
+                    if (time <= 0) { gameActive = true; currentMode.start(); countdownRunning = false; cancel(); return; }
+                    time--;
+                }
+            }.runTaskTimer(TunierServer.getInstance(), 0L, 20L);
+            return;
+        }
+
         // Normaler Countdown — PvP + Achievement + ItemCollector
         new BukkitRunnable() {
             int time = 15;
