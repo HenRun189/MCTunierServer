@@ -83,6 +83,11 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
             p.setVelocity(new Vector(0, 0, 0));
 
             ItemStack shovel = new ItemStack(Material.IRON_SHOVEL, 1);
+            ItemMeta meta = shovel.getItemMeta();
+            if (meta != null) {
+                meta.setUnbreakable(true);
+                shovel.setItemMeta(meta);
+            }
             p.getInventory().addItem(shovel);
         }
 
@@ -187,6 +192,7 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
         super.stop();
         activePlayers.clear();
         data.clear();
+        startGameFlow("spleeffallingblocks");
     }
 
 }

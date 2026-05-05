@@ -119,30 +119,31 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
         for (Player player : data.values()) {
 
-            Location bLoc = player.getLocation().clone().subtract(0, 0.6, 0);
-            Block block = bLoc.getBlock();
+            if (player.getGameMode() != GameMode.SPECTATOR) {
+                Location bLoc = player.getLocation().clone().subtract(0, 0.6, 0);
+                Block block = bLoc.getBlock();
 
-            if (block.getType() == Material.AIR) {
-                int prevTime = fallTimer.get(player.getUniqueId());
-                fallTimer.put(player.getUniqueId(), prevTime + 1);
+                if (block.getType() == Material.AIR) {
+                    int prevTime = fallTimer.get(player.getUniqueId());
+                    fallTimer.put(player.getUniqueId(), prevTime + 1);
 
-                if (fallTimer.get(player.getUniqueId()) > cheatDetectTimer){
-                    for (int x = -1; x <= 1; x++)
-                        for (int z = -1; z <= 1; z++) {
-                            Location nbLoc = player.getLocation().clone().subtract(x, 0.6, z);
-                            //Block block = nbLoc.getBlock();
+                    if (fallTimer.get(player.getUniqueId()) > cheatDetectTimer) {
+                        for (int x = -1; x <= 1; x++)
+                            for (int z = -1; z <= 1; z++) {
+                                Location nbLoc = player.getLocation().clone().subtract(x, 0.6, z);
+                                //Block block = nbLoc.getBlock();
 
-                            FallingBlock newFB = new FallingBlock(nbLoc, fallTime);
-                            fallingBlocks.add(newFB);
-                        }
+                                FallingBlock newFB = new FallingBlock(nbLoc, fallTime);
+                                fallingBlocks.add(newFB);
+                            }
+                    }
+                } else {
+                    fallTimer.put(player.getUniqueId(), 0);
                 }
-            }
-            else {
-                fallTimer.put(player.getUniqueId(), 0);
-            }
 
-            if (player.getLocation().getY() < disqualifyHight && player.getGameMode() != GameMode.SPECTATOR) {
-                disqualify(player.getUniqueId());
+                if (player.getLocation().getY() < disqualifyHight && player.getGameMode() != GameMode.SPECTATOR) {
+                    disqualify(player.getUniqueId());
+                }
             }
 
         }
@@ -250,6 +251,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         activePlayers.clear();
         data.clear();
         fallingBlocks.clear();
+        startGameFlow("spleefwindcharge");
     }
 
 }
