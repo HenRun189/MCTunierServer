@@ -22,30 +22,24 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import java.util.*;
 
 
-public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
+public class SpleefShovel extends AbstractGameMode implements Listener {
 
     private World world = Bukkit.getWorld("windchargeworld");
 
-    private int fallTime = 30;
-    private Material fallingBlockType = Material.SANDSTONE;
-    private Material fallActiveBlockType = Material.RED_SANDSTONE;
     private long disqualifyHight;
     private Location spawnLoc = new Location(world, 0, 128, -91);
     private double higthDiffernce = 8; //// 117, 112, 107...
     private int layerAmount = 6;
     private Location loc1 = new Location(world, 16, 118, -110);
-    private Location loc2 = new Location(world, -14, 118, -79);
-    private int cheatDetectTimer = 100;
+    private  Location loc2 = new Location(world, -14, 118, -79);
 
     private TeamManager teamManager;
     private ScoreManager scoreManager;
     private Map<UUID, Player> data = new HashMap<>();
     private ArrayList<UUID> activePlayers = new ArrayList<UUID>();
-    private ArrayList<FallingBlock> fallingBlocks = new ArrayList<FallingBlock>();
-    private Map<UUID, Integer> fallTimer = new HashMap<>();
 
 
-    public SpleefFallingBlocks(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
+    public SpleefShovel(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
         super(300, arg_teamManager);
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
@@ -71,13 +65,12 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
             Location lLoc1 = loc1.clone().subtract(0, higthDiffernce * i, 0);
             Location lLoc2 = loc2.clone().subtract(0, higthDiffernce * i, 0);
-            fill(lLoc1, lLoc2, fallingBlockType);
+            fill(lLoc1, lLoc2, Material.SNOW_BLOCK);
         }
     }
 
     @Override
     protected void onGameStart() {
-        disqualifyHight = 73;
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
             if (p == null) continue;
@@ -87,65 +80,27 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
             p.teleport(drop);
 
             p.setVelocity(new Vector(0, 0, 0));
+
+            ItemStack shovel = new ItemStack(Material.IRON_SHOVEL, 1);
+            p.getInventory().addItem(shovel);
         }
+
     }
 
 
     @EventHandler
     public void onMove(PlayerMoveEvent e) {
-        if (e.getTo() == null) return;
-        if (!e.hasChangedBlock()) return;
 
-        Player p = e.getPlayer();
-
-        Location loc = e.getTo();
-        Location bLoc = loc.clone().subtract(0, 0.6, 0);
-        Block block = bLoc.getBlock();
-
-        if (block.getType() == fallingBlockType) {
-            FallingBlock newFB = new FallingBlock(bLoc, fallTime);
-            fallingBlocks.add(newFB);
-        }
     }
 
     protected void onGameTick() {
 
-        for (int i = fallingBlocks.size() - 1; i >= 0; i--) {
-            if (fallingBlocks.get(i).newTick()) {
-                fallingBlocks.remove(i);
-            }
-        }
-
         for (Player player : data.values()) {
-
-            Location bLoc = player.getLocation().clone().subtract(0, 0.6, 0);
-            Block block = bLoc.getBlock();
-
-            if (block.getType() == Material.AIR) {
-                int prevTime = fallTimer.get(player.getUniqueId());
-                fallTimer.put(player.getUniqueId(), prevTime + 1);
-
-                if (fallTimer.get(player.getUniqueId()) > cheatDetectTimer){
-                    for (int x = -1; x <= 1; x++)
-                        for (int z = -1 <= 1; z++) {
-                            Location nbLoc = player.getLocation().clone().subtract(x, 0.6, z);
-                            Block block = nbLoc.getBlock();
-
-                            FallingBlock newFB = new FallingBlock(nbLoc, fallTime);
-                            fallingBlocks.add(newFB);
-                        }
-                }
-            }
-            else {
-                fallTimer.put(player.getUniqueId(), 0);
-            }
 
             if (player.getLocation().getY() < disqualifyHight && player.getGameMode() != GameMode.SPECTATOR) {
                 disqualify(player.getUniqueId());
             }
-
         }
-
 
     }
 
@@ -171,6 +126,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     }
 
+    //scoreManager.addPoints(team.getName(), 5); Punkte bekommen methode
 
 
     public class FallingBlock {
@@ -216,7 +172,12 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     public void onBlockBreak(BlockBreakEvent e) {
         if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
         if (!TunierServer.getInstance().getGameManager().isGameActive()) return;
-        e.setCancelled(true);
+        if (event.getBlock().getType() == Material.SNOW_BLOCK) {
+            e.setCancelled(false);
+        }
+        else {
+            e.setCancelled(true);
+        }
     }
 
     @org.bukkit.event.EventHandler
