@@ -19,9 +19,17 @@ public abstract class AbstractGameMode implements GameMode {
     protected int taskId = -1;
     protected TeamManager teamManager;
 
+    /**
+     * @param gameTime Spielzeit in Sekunden. -1 = kein Zeitlimit (z.B. PvP).
+     */
     public AbstractGameMode(int gameTime, TeamManager teamManager) {
         this.time = gameTime;
         this.teamManager = teamManager;
+    }
+
+    /** Gibt true zurück wenn dieser Modus kein Zeitlimit hat (time == -1). */
+    protected boolean isUnlimitedTime() {
+        return time == -1;
     }
 
     @Override
@@ -31,58 +39,56 @@ public abstract class AbstractGameMode implements GameMode {
 
         taskId = Bukkit.getScheduler().runTaskTimer(TunierServer.getInstance(), new Runnable() {
 
-            boolean started = false;
-            int pauseTick = 0;
-            int secondTick = 0;
+            boolean started  = false;
+            int pauseTick    = 0;
+            int secondTick   = 0;
 
             @Override
             public void run() {
 
-                // Pause
+                // ── Pause ──────────────────────────────────────────
                 if (TunierServer.getInstance().getGameManager().isPaused()) {
-
                     pauseTick++;
-
                     if (pauseTick % 20 == 0) {
-                        for (Player p : Bukkit.getOnlinePlayers()) {
+                        for (Player p : Bukkit.getOnlinePlayers())
                             p.sendActionBar(Component.text("§c⏸ PAUSIERT"));
-                        }
                     }
-
                     return;
                 }
-
                 pauseTick = 0;
 
+                // ── Erster Tick: Spiel initialisieren ──────────────
                 if (!started) {
                     started = true;
                     onGameStart();
                     return;
                 }
 
-                // jede Tick
+                // ── Jeder Tick ─────────────────────────────────────
                 onGameTick();
 
-                // jede Sekunde
+                // ── Jede Sekunde ───────────────────────────────────
                 secondTick++;
                 if (secondTick >= 20) {
                     secondTick = 0;
 
                     onSecond();
-
-                    time--;
                     updateActionbar();
 
-                    if (time == 300) broadcast("§e5 minutes left!");
-                    if (time == 60) broadcast("§c1 minute left!");
+                    // Zeitlimit-Logik nur wenn KEIN unbegrenzter Modus
+                    if (!isUnlimitedTime()) {
+                        time--;
 
-                    if (time <= 10 && time > 0) {
-                        broadcast("§cNoch " + time + " Sekunden!");
-                    }
+                        if (time == 300) broadcast("§e5 minutes left!");
+                        if (time == 60)  broadcast("§c1 minute left!");
+                        if (time <= 10 && time > 0)
+                            broadcast("§cNoch " + time + " Sekunden!");
 
-                    if (time <= 0) {
-                        TunierServer.getInstance().getGameManager().stopGame();
+                        if (time <= 0)
+                            TunierServer.getInstance().getGameManager().stopGame();
                     }
+                    // Bei unlimitedTime (-1): time bleibt -1, Spiel läuft bis
+                    // checkWinCondition() in PvPMode stopGame() aufruft.
                 }
             }
 
@@ -103,23 +109,17 @@ public abstract class AbstractGameMode implements GameMode {
 
             int bestScore = getPoints(ranking.get(0).getName());
             List<String> winners = new ArrayList<>();
-
-            for (TeamData t : ranking) {
-                if (getPoints(t.getName()) == bestScore) {
+            for (TeamData t : ranking)
+                if (getPoints(t.getName()) == bestScore)
                     winners.add(t.getName());
-                }
-            }
 
             for (Player p : Bukkit.getOnlinePlayers()) {
 
                 TeamData team = null;
-
-                if (teamManager != null) {
+                if (teamManager != null)
                     team = teamManager.getTeamByPlayer(p.getUniqueId());
-                }
 
                 int place = -1;
-
                 if (team != null) {
                     for (int i = 0; i < ranking.size(); i++) {
                         if (ranking.get(i).getName().equals(team.getName())) {
@@ -131,48 +131,43 @@ public abstract class AbstractGameMode implements GameMode {
 
                 p.showTitle(Title.title(
                         Component.text("§6Dein Platz: #" + (place == -1 ? "-" : place)),
-                        Component.text(
-                                winners.size() == 1
-                                        ? "§7Gewinner: §e" + winners.get(0)
-                                        : "§7Unentschieden: §e" + String.join(", ", winners)
-                        )
+                        Component.text(winners.size() == 1
+                                ? "§7Gewinner: §e" + winners.get(0)
+                                : "§7Unentschieden: §e" + String.join(", ", winners))
                 ));
-
                 p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
             }
         }
 
         Bukkit.broadcast(Component.text("§6§lRanking :"));
-
         int place = 1;
-        for (TeamData t : ranking) {
+        for (TeamData t : ranking)
             Bukkit.broadcast(Component.text(
                     "§e#" + place++ + " §f" + t.getName() +
                             " §7- §a" + getPoints(t.getName())
             ));
-        }
     }
 
     protected void broadcast(String msg) {
         Bukkit.broadcast(Component.text(msg));
     }
 
+    /**
+     * Standard-ActionBar: zeigt den Countdown runter.
+     * PvPMode überschreibt das mit eigener BossBar + hochzählender Zeit.
+     */
     protected void updateActionbar() {
+        if (isUnlimitedTime()) return; // PvP macht das selbst
         int minutes = time / 60;
         int seconds = time % 60;
         String timeString = String.format("%02d:%02d", minutes, seconds);
-
-        for (Player p : Bukkit.getOnlinePlayers()) {
+        for (Player p : Bukkit.getOnlinePlayers())
             p.sendActionBar(Component.text("§6⏱ " + timeString));
-        }
     }
 
     protected abstract void onGameStart();
     protected abstract void onGameTick();
-
-    protected void onSecond() {
-    }
-
+    protected void onSecond() {}
     protected abstract List<TeamData> getRanking();
     protected abstract int getPoints(String teamName);
 }

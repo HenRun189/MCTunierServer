@@ -51,8 +51,9 @@ public class GameManager implements Listener {
     private static final int JR_MAX_Z = 2;
 
     private final Set<UUID> frozenPlayers = new HashSet<>();
-    private Map<UUID, double> frozenHealth = new HashMap<>();
-    private Map<UUID, double> frozenHunger = new HashMap<>();
+    private final Map<UUID, Double> frozenHealth = new HashMap<>();
+    private final Map<UUID, Integer> frozenHunger = new HashMap<>();
+
     private boolean paused = false;
 
     public boolean isPaused()             { return paused; }
@@ -175,10 +176,10 @@ public class GameManager implements Listener {
     //  FREEZE
     // ══════════════════════════════════════════════════════════════
 
-    public void freezePlayer(Player p)   {
+    public void freezePlayer(Player p) {
         frozenPlayers.add(p.getUniqueId());
-        frozenHealth.put(p.getUniqueID(), p.getHealth());
-        frozenHunger.put(p.getUniqueID(), p.getFoodLevel());
+        frozenHealth.put(p.getUniqueId(), p.getHealth());
+        frozenHunger.put(p.getUniqueId(), p.getFoodLevel());
     }
     public void unfreezePlayer(Player p) {
         frozenPlayers.remove(p.getUniqueId());
@@ -308,6 +309,12 @@ public class GameManager implements Listener {
                 startLobbyCountdown(lower);
                 return;
             }
+            case "spleefshovel" -> {
+                currentMode = new SpleefShovel(teamManager, scoreManager);
+                scoreManager.setCurrentGame("Spleef Shovel");
+                startLobbyCountdown(lower);
+                return;
+            }
             case "pvp", "pvptest" -> {
                 PvPMode pvp = new PvPMode(teamManager, scoreManager);
                 if (lower.equals("pvptest")) pvp.setSoloTestMode(true);
@@ -317,6 +324,8 @@ public class GameManager implements Listener {
                 scoreManager.resetGame();
                 scoreManager.setupScoreboard();
                 resetAllPlayers();
+                clearAllInventories();           // ← NEU
+                clearDroppedItemsInGameWorlds(); // ← NEU
                 startLobbyCountdown(lower);
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     scoreManager.applyToPlayer(p);
@@ -358,6 +367,7 @@ public class GameManager implements Listener {
             case "jumpandrun"          -> "Jump and Run";
             case "spleefwindcharge"    -> "Spleef Windcharge";
             case "spleeffallingblocks" -> "Spleef Falling Blocks";
+            case "spleefshovel" -> "Spleef Shovel";
             case "itemcollector"       -> "Item Collector";
             default                    -> mode;
         };
@@ -408,7 +418,8 @@ public class GameManager implements Listener {
 
                     if (currentMode instanceof JumpAndRunMode
                             || currentMode instanceof SpleefWindChargeMode
-                            || currentMode instanceof SpleefFallingBlocks) {
+                            || currentMode instanceof SpleefFallingBlocks
+                            || currentMode instanceof SpleefShovel) {
                         prepareWorldsAndTeleport();
                         return;
                     }
@@ -468,6 +479,7 @@ public class GameManager implements Listener {
             p.setInvulnerable(true);
             p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
         }
+        freezeAll();
 
         Bukkit.broadcast(Component.text("§6§lHunger Games §8| §7Alle auf Startposition – Countdown läuft!"));
         Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), this::startGameCountdown, 20L);
@@ -498,6 +510,14 @@ public class GameManager implements Listener {
             World world = Bukkit.getWorld("windchargeworld");
             if (world == null) { Bukkit.broadcast(Component.text("§cWindcharge Welt nicht gefunden!")); return; }
             for (Player p : Bukkit.getOnlinePlayers()) p.teleport(new Location(world, 0, 128, -39, 0f, 0f));
+            startGameCountdown();
+            return;
+        }
+
+        if (currentMode instanceof SpleefShovel) {
+            World world = Bukkit.getWorld("windchargeworld");
+            if (world == null) { Bukkit.broadcast(Component.text("§cWindcharge Welt nicht gefunden!")); return; }
+            for (Player p : Bukkit.getOnlinePlayers()) p.teleport(new Location(world, 0, 128, -39, 0f, 0f)); //Noch ändern
             startGameCountdown();
             return;
         }
@@ -591,6 +611,28 @@ public class GameManager implements Listener {
             return;
         }
 
+        if (currentMode instanceof SpleefShovel jnrMode) {
+            final List<Player> participants = new ArrayList<>();
+            for (Player p : Bukkit.getOnlinePlayers())
+                if (p.getWorld().getName().equals("windchargeworld")) participants.add(p);
+            jnrMode.preGame(participants);
+            Bukkit.getPluginManager().registerEvents(jnrMode, TunierServer.getInstance());
+
+            new BukkitRunnable() {
+                int time = 15;
+                @Override public void run() {
+                    for (Player p : Bukkit.getOnlinePlayers()) {
+                        p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+                        if (time <= 10 && time > 0) p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
+                        if (time == 0)              p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
+                    }
+                    if (time <= 0) { gameActive = true; currentMode.start(); countdownRunning = false; cancel(); return; }
+                    time--;
+                }
+            }.runTaskTimer(TunierServer.getInstance(), 0L, 20L);
+            return;
+        }
+
         // Normaler Countdown — PvP + Achievement + ItemCollector
         new BukkitRunnable() {
             int time = 15;
@@ -644,9 +686,9 @@ public class GameManager implements Listener {
             if (to == null) return;
             e.setTo(new Location(from.getWorld(), from.getX(), from.getY(), from.getZ(),
                     to.getYaw(), to.getPitch()));
-            // ← diese Zeile hinzufügen:
-            p.getHealth(frozenHealth.get(p.getUniqueID()));
-            p.setFoodLevel(frozenHunger.get(p.getUniqueID()));
+
+            p.setHealth(frozenHealth.get(p.getUniqueId()));
+            p.setFoodLevel(frozenHunger.get(p.getUniqueId()));
             p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
             return;
         }

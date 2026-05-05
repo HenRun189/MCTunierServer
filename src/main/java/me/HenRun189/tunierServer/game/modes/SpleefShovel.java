@@ -15,6 +15,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -128,29 +129,6 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
 
     //scoreManager.addPoints(team.getName(), 5); Punkte bekommen methode
 
-
-    public class FallingBlock {
-        private Location loc;
-        private int tickTimer;
-
-        public FallingBlock(Location arg_loc, int arg_tickTimer) {
-            loc = arg_loc;
-            tickTimer = arg_tickTimer;
-            loc.getBlock().setType(fallActiveBlockType);
-        }
-
-        public boolean newTick() {
-            tickTimer--;
-            if (tickTimer < 0) {
-                loc.getBlock().setType(Material.AIR);
-                return true;
-            }
-            else {
-                return false;
-            }
-        }
-    }
-
     //Muss noch gemacht werden (man sollte noch am Ende noch Punkte hinzufügen aber wie muss man halt noch schauen
     public void disqualify(UUID uuid) {
         Player p = Bukkit.getPlayer(uuid);
@@ -172,7 +150,7 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
     public void onBlockBreak(BlockBreakEvent e) {
         if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
         if (!TunierServer.getInstance().getGameManager().isGameActive()) return;
-        if (event.getBlock().getType() == Material.SNOW_BLOCK) {
+        if (e.getBlock().getType() == Material.SNOW_BLOCK) {
             e.setCancelled(false);
         }
         else {
@@ -206,9 +184,9 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
     public void stop() {
         HandlerList.unregisterAll(this);
 
+        super.stop();
         activePlayers.clear();
         data.clear();
-        fallingBlocks.clear();
     }
 
 }

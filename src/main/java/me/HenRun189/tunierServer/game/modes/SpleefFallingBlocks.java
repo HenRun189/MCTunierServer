@@ -31,11 +31,11 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     private Material fallActiveBlockType = Material.RED_SANDSTONE;
     private long disqualifyHight;
     private Location spawnLoc = new Location(world, 0, 128, -91);
-    private double higthDiffernce = 8; //// 117, 112, 107...
+    private double higthDiffernce = 5;
     private int layerAmount = 6;
     private Location loc1 = new Location(world, 16, 118, -110);
     private Location loc2 = new Location(world, -14, 118, -79);
-    private int cheatDetectTimer = 100;
+    private int cheatDetectTimer = 60;
 
     private TeamManager teamManager;
     private ScoreManager scoreManager;
@@ -128,9 +128,9 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
                 if (fallTimer.get(player.getUniqueId()) > cheatDetectTimer){
                     for (int x = -1; x <= 1; x++)
-                        for (int z = -1 <= 1; z++) {
+                        for (int z = -1; z <= 1; z++) {
                             Location nbLoc = player.getLocation().clone().subtract(x, 0.6, z);
-                            Block block = nbLoc.getBlock();
+                            //Block block = nbLoc.getBlock();
 
                             FallingBlock newFB = new FallingBlock(nbLoc, fallTime);
                             fallingBlocks.add(newFB);
@@ -246,6 +246,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     public void stop() {
         HandlerList.unregisterAll(this);
 
+        super.stop();
         activePlayers.clear();
         data.clear();
         fallingBlocks.clear();

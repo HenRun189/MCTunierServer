@@ -17,6 +17,9 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 import java.util.*;
 
@@ -56,9 +59,11 @@ public class PvPMode extends AbstractGameMode implements Listener {
     private static final double BORDER_CENTER_X = 16;
     private static final double BORDER_CENTER_Z = 26;
 
-    private static final int BORDER_PHASE1_START_SEC = 300; // 5 min
-    private static final int BORDER_PHASE2_START_SEC = 780; // 13 min
-    private static final int TOTAL_SECONDS           = 20 * 60;
+    // Border-Phasen (in Sekunden seit Spielstart)
+    // Phase 1: Bei 300s (5min) → schrumpft über 600s auf Radius 75 (fertig bei 900s = 15min)
+    // Phase 2: Bei 1080s (18min) → schrumpft über 120s auf Radius 4 (fertig bei 1200s = 20min)
+    private static final int BORDER_PHASE1_START_SEC = 300;  // 5 min
+    private static final int BORDER_PHASE2_START_SEC = 1080; // 18 min
 
     private boolean phase1Started = false;
     private boolean phase2Started = false;
@@ -71,11 +76,15 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
     // ── BossBar ────────────────────────────────────────────────────
     private BossBar timerBar;
-    private boolean registered   = false;
-    private int     survivalTick = 0;
+    private boolean registered    = false;
+    private int     survivalTick  = 0;
+    private int     elapsedSeconds = 0; // eigener Hochzähl-Timer, unabhängig von AbstractGameMode
+    private final Set<String> playerPlacedBlocks = new HashSet<>();
+    private final Map<UUID, Location> spawnLocations = new HashMap<>();
+    private final Map<UUID, Long> disconnectedAt = new HashMap<>();
 
     public PvPMode(TeamManager teamManager, ScoreManager scoreManager) {
-        super(TOTAL_SECONDS, teamManager);
+        super(-1, teamManager); // -1 = kein Zeitlimit, Spiel endet nur durch Win-Condition
         this.scoreManager = scoreManager;
     }
 
@@ -99,9 +108,13 @@ public class PvPMode extends AbstractGameMode implements Listener {
         killCount.clear();
         deathCount.clear();
         teamKillCount.clear();
-        survivalTick  = 0;
-        phase1Started = false;
-        phase2Started = false;
+        playerPlacedBlocks.clear();
+        spawnLocations.clear();
+        disconnectedAt.clear();
+        survivalTick   = 0;
+        elapsedSeconds = 0;
+        phase1Started  = false;
+        phase2Started  = false;
 
         // Team-Kill-Counter initialisieren
         for (TeamData t : teamManager.getTeams().values()) {
@@ -114,7 +127,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
         border.setSize(460); // Radius 230 × 2
 
         // BossBar
-        timerBar = Bukkit.createBossBar("§6§lHunger Games §8| §715:00", BarColor.GREEN, BarStyle.SOLID);
+        timerBar = Bukkit.createBossBar("§6§lHunger Games §8| §70:00", BarColor.GREEN, BarStyle.SOLID);
 
         // Spawn-Liste mischen → zufällige Reihenfolge, nie doppelt
         List<int[]> shuffledSpawns = new ArrayList<>(Arrays.asList(SPAWN_COORDS));
@@ -133,6 +146,15 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
 
             preparePlayer(p);
+
+            Location spawnLoc = new Location(world,
+                    shuffledSpawns.get(i % shuffledSpawns.size())[0],
+                    shuffledSpawns.get(i % shuffledSpawns.size())[1],
+                    shuffledSpawns.get(i % shuffledSpawns.size())[2]);
+            p.teleport(spawnLoc);
+            p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+            spawnLocations.put(p.getUniqueId(), spawnLoc);
+
             p.setInvulnerable(true);
             timerBar.addPlayer(p);
         }
@@ -175,15 +197,13 @@ public class PvPMode extends AbstractGameMode implements Listener {
     @Override
     protected void onGameTick() {
         if (world == null) return;
-
-        checkWinCondition();
     }
 
     @Override
     protected void onSecond() {
         if (world == null) return;
 
-        int elapsed = TOTAL_SECONDS - time;
+        elapsedSeconds++; // eigener Hochzähl-Timer
 
         updateTimerBar();
 
@@ -193,24 +213,65 @@ public class PvPMode extends AbstractGameMode implements Listener {
             giveSurvivalPoints();
         }
 
-        if (!phase1Started && elapsed >= BORDER_PHASE1_START_SEC) {
+        // Phase 1: 5min → Border schrumpft von 460 (R=230) auf 150 (R=75) über 600s (10min)
+        if (!phase1Started && elapsedSeconds >= BORDER_PHASE1_START_SEC) {
             phase1Started = true;
-            border.changeSize(150, 600L);
+            border.changeSize(150, 600L); // 600 Sekunden = 10 Minuten
             Bukkit.broadcast(Component.text("§c§lDie Border verkleinert sich! §7(→ Radius 75 in 10 min)"));
+            for (Player p : Bukkit.getOnlinePlayers())
+                p.playSound(p.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 1f, 0.5f);
         }
 
-        if (!phase2Started && elapsed >= BORDER_PHASE2_START_SEC) {
+        // Phase 2: 18min → Border schrumpft von 150 (R=75) auf 8 (R=4) über 120s (2min)
+        if (!phase2Started && elapsedSeconds >= BORDER_PHASE2_START_SEC) {
             phase2Started = true;
-            border.changeSize(10, 90L);
-            Bukkit.broadcast(Component.text("§4§lACHTUNG! §cBorder → 5 Blöcke! §7(fertig 30s vor Ende)"));
+            border.changeSize(8, 120L); // 120 Sekunden = 2 Minuten
+            Bukkit.broadcast(Component.text("§4§lACHTUNG! §cBorder → 4 Blöcke Radius! §7(fertig in 2 min)"));
+            for (Player p : Bukkit.getOnlinePlayers())
+                p.playSound(p.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 0.8f);
         }
 
-        if (elapsed == 20) {
+        if (elapsedSeconds == 20) {
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.setInvulnerable(false);
                 p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.2f);
             }
             Bukkit.broadcast(Component.text("§c§lPvP ist jetzt aktiv!"));
+        }
+
+        // in onSecond(), neue if-Blöcke:
+        if (elapsedSeconds == BORDER_PHASE1_START_SEC - 10) {
+            for (Player p : Bukkit.getOnlinePlayers())
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.5f);
+        }
+        if (elapsedSeconds == BORDER_PHASE2_START_SEC - 10) {
+            for (Player p : Bukkit.getOnlinePlayers())
+                p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.5f);
+        }
+
+        if (elapsedSeconds < 20) {
+            for (UUID uuid : alivePlayers) {
+                Player p = Bukkit.getPlayer(uuid);
+                Location loc = spawnLocations.get(uuid);
+                if (p != null && loc != null) {
+                    p.teleport(loc);
+                    p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+                }
+            }
+        }
+
+        long now = System.currentTimeMillis();
+        for (Iterator<Map.Entry<UUID, Long>> it = disconnectedAt.entrySet().iterator(); it.hasNext();) {
+            Map.Entry<UUID, Long> entry = it.next();
+            if (now - entry.getValue() >= 30_000L) {
+                UUID uuid = entry.getKey();
+                it.remove();
+                alivePlayers.remove(uuid);
+                String name = Bukkit.getOfflinePlayer(uuid).getName();
+                if (name == null) name = "Unbekannt";
+                Bukkit.broadcast(Component.text("§c☠ " + name + " §7wurde wegen Disconnect eliminiert!"));
+                checkWinCondition();
+            }
         }
     }
 
@@ -236,7 +297,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
             p.sendActionBar(Component.text(
                     //(isAlive ? "§a● Leben" : "§c● Zuschauer") +
-                            " §8| §c⚔ " + myKills + " Kills" +
+                    " §8| §c⚔ " + myKills + " Kills" +
                             " §8| §e" + totalAlive + "§7/§e" + totalParticipants + " übrig"
             ));
         }
@@ -297,9 +358,13 @@ public class PvPMode extends AbstractGameMode implements Listener {
         killCount.clear();
         deathCount.clear();
         teamKillCount.clear();
+        playerPlacedBlocks.clear();
+        spawnLocations.clear();
+        disconnectedAt.clear();
         phase1Started  = false;
         phase2Started  = false;
         survivalTick   = 0;
+        elapsedSeconds = 0;
         endScreenShown = false;
     }
 
@@ -386,11 +451,15 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
     private void updateTimerBar() {
         if (timerBar == null) return;
-        int min = time / 60;
-        int sec = time % 60;
-        double progress = Math.max(0, Math.min(1, (double) time / TOTAL_SECONDS));
-        timerBar.setProgress(progress);
-        timerBar.setColor(progress > 0.5 ? BarColor.GREEN : progress > 0.25 ? BarColor.YELLOW : BarColor.RED);
+        int min = elapsedSeconds / 60;
+        int sec = elapsedSeconds % 60;
+        // Farbe je nach Border-Phase
+        BarColor color;
+        if (!phase1Started) color = BarColor.GREEN;
+        else if (!phase2Started) color = BarColor.YELLOW;
+        else color = BarColor.RED;
+        timerBar.setProgress(1.0); // kein Countdown → Bar immer voll
+        timerBar.setColor(color);
         timerBar.setTitle(String.format("§6§lHunger Games §8| §7%d:%02d", min, sec));
     }
 
@@ -410,7 +479,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
         p.getInventory().clear();
         p.getInventory().addItem(new ItemStack(Material.STONE_SWORD));
         p.getInventory().addItem(new ItemStack(Material.COOKED_BEEF, 8));
-        p.getInventory().addItem(new ItemStack(Material.GOLDEN_APPLE, 1));
+        //p.getInventory().addItem(new ItemStack(Material.GOLDEN_APPLE, 1));
         p.setHealth(Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getDefaultValue());
         p.setFoodLevel(20);
         p.setSaturation(20);
@@ -436,6 +505,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
         Set<String> aliveTeams = new HashSet<>();
         for (UUID uuid : alivePlayers) {
+            if (disconnectedAt.containsKey(uuid)) continue; // Bug 1 Fix
             Player p = Bukkit.getPlayer(uuid);
             if (p == null || !p.isOnline() || p.isDead() || p.getGameMode() == GameMode.SPECTATOR) continue;
             TeamData team = teamManager.getTeamByPlayer(uuid);
@@ -443,9 +513,12 @@ public class PvPMode extends AbstractGameMode implements Listener {
         }
 
         if (aliveTeams.size() <= 1) {
-            if (!aliveTeams.isEmpty())
+            if (!aliveTeams.isEmpty()) {
+                for (Player p : Bukkit.getOnlinePlayers())
+                    p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
                 Bukkit.broadcast(Component.text("§6§l" + aliveTeams.iterator().next() + " §6hat gewonnen! 🎉"));
-            TunierServer.getInstance().getGameManager().stopGame();
+            }
+            TunierServer.getInstance().getGameManager().stopGame(); // ← außerhalb vom isEmpty-Check
         }
     }
 
@@ -463,6 +536,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
         Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
             dead.spigot().respawn();
             dead.setGameMode(GameMode.SPECTATOR);
+            dead.playSound(dead.getLocation(), Sound.ENTITY_PLAYER_DEATH, 1f, 1f);
         }, 2L);
 
         Player killer = dead.getKiller();
@@ -490,6 +564,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
             killCount.merge(killer.getUniqueId(), 1, Integer::sum);
             teamKillCount.merge(killerTeam.getName(), 1, Integer::sum);
             scoreManager.addPoints(killerTeam.getName(), 20);
+            killer.playSound(killer.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1.5f);
             int totalKills = killCount.get(killer.getUniqueId());
 
             // Nur Kills im Chat, keine Tode
@@ -506,9 +581,34 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        alivePlayers.remove(e.getPlayer().getUniqueId());
-        if (timerBar != null) timerBar.removePlayer(e.getPlayer());
-        checkWinCondition();
+        Player p = e.getPlayer();
+        if (timerBar != null) timerBar.removePlayer(p);
+        if (alivePlayers.contains(p.getUniqueId())) {
+            disconnectedAt.put(p.getUniqueId(), System.currentTimeMillis());
+            Bukkit.broadcast(Component.text("§e⚠ " + p.getName() + " §7hat das Spiel verlassen. §8(30s Reconnect-Zeit)"));
+        }
+    }
+
+    @EventHandler
+    public void onJoin(org.bukkit.event.player.PlayerJoinEvent e) {
+        UUID uuid = e.getPlayer().getUniqueId();
+        if (disconnectedAt.containsKey(uuid)) {
+            disconnectedAt.remove(uuid);
+            if (timerBar != null) timerBar.addPlayer(e.getPlayer());
+            Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
+                Player rejoined = Bukkit.getPlayer(uuid);
+                if (rejoined == null) return;
+                Location loc = spawnLocations.get(uuid);
+                if (loc != null) {
+                    rejoined.teleport(loc);
+                } else if (world != null) {
+                    rejoined.teleport(world.getSpawnLocation()); // Fallback: PvP-Welt Spawn
+                }
+                rejoined.setFallDistance(0);
+                rejoined.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
+            }, 5L); // 5 Ticks warten bis Client ready
+            Bukkit.broadcast(Component.text("§a✔ " + e.getPlayer().getName() + " §7ist zurückgekehrt!"));
+        }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -532,4 +632,38 @@ public class PvPMode extends AbstractGameMode implements Listener {
 
     @Override
     public void handleEvent(Event event) {}
+
+    @EventHandler
+    public void onBlockPlace(BlockPlaceEvent e) {
+        if (!alivePlayers.contains(e.getPlayer().getUniqueId())) return;
+        org.bukkit.block.Block b = e.getBlock();
+        playerPlacedBlocks.add(b.getWorld().getName() + "," + b.getX() + "," + b.getY() + "," + b.getZ());
+    }
+
+    @EventHandler
+    public void onBlockBreak(BlockBreakEvent e) {
+        if (!alivePlayers.contains(e.getPlayer().getUniqueId())) return;
+        org.bukkit.block.Block b = e.getBlock();
+        String key = b.getWorld().getName() + "," + b.getX() + "," + b.getY() + "," + b.getZ();
+        if (!playerPlacedBlocks.contains(key)) {
+            e.setCancelled(true);
+            return;
+        }
+        playerPlacedBlocks.remove(key);
+    }
+
+    @EventHandler
+    public void onDamage(org.bukkit.event.entity.EntityDamageByEntityEvent e) {
+        if (friendlyFire) return;
+        if (!(e.getEntity() instanceof Player dead)) return;
+        if (!(e.getDamager() instanceof Player attacker)) return;
+
+        TeamData deadTeam     = teamManager.getTeamByPlayer(dead.getUniqueId());
+        TeamData attackerTeam = teamManager.getTeamByPlayer(attacker.getUniqueId());
+
+        if (deadTeam != null && attackerTeam != null
+                && deadTeam.getName().equals(attackerTeam.getName())) {
+            e.setCancelled(true);
+        }
+    }
 }
