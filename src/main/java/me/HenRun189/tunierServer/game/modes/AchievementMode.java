@@ -79,11 +79,11 @@ public class AchievementMode extends AbstractGameMode implements Listener {
 
         Bukkit.getPluginManager().registerEvents(this, TunierServer.getInstance());
 
-        super.start(); // 🔥 GLOBAL SYSTEM
+        super.start(); // GLOBAL SYSTEM
     }
 
     // =========================
-    // 🚀 START
+    // START
     // =========================
 
     @Override
@@ -109,7 +109,7 @@ public class AchievementMode extends AbstractGameMode implements Listener {
     }
 
     // =========================
-    // 🔁 LOOP
+    // LOOP
     // =========================
 
     @Override
@@ -134,12 +134,12 @@ public class AchievementMode extends AbstractGameMode implements Listener {
     }
 
     // =========================
-    // 🛑 STOP CLEANUP
+    // STOP CLEANUP
     // =========================
 
     @Override
     public void stop() {
-        super.stop(); // 🔥 GLOBAL WIN / RANKING
+        super.stop(); // GLOBAL WIN / RANKING
 
         HandlerList.unregisterAll(this);
 
@@ -151,7 +151,7 @@ public class AchievementMode extends AbstractGameMode implements Listener {
     }
 
     // =========================
-    // 🏆 ADVANCEMENT
+    // ADVANCEMENT
     // =========================
 
     @EventHandler
@@ -222,7 +222,7 @@ public class AchievementMode extends AbstractGameMode implements Listener {
     }
 
     // =========================
-    // 📊 GLOBAL RANKING (für Abstract)
+    // GLOBAL RANKING (für Abstract)
     // =========================
 
     @Override
@@ -296,6 +296,6 @@ public class AchievementMode extends AbstractGameMode implements Listener {
         BossBar bar = teamBossBars.get(team.getName());
         if (bar == null) return;
 
-        bar.addPlayer(p); // 🔥 DAS IST DER FIX
+        bar.addPlayer(p);
     }
 }
