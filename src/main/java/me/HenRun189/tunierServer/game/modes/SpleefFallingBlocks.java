@@ -77,6 +77,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     @Override
     protected void onGameStart() {
+
         disqualifyHight = 73;
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
