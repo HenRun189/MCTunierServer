@@ -16,6 +16,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.util.Vector;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -153,6 +154,7 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent e) {
+        e.setDropItems(false);
         if (!activePlayers.contains(e.getPlayer().getUniqueId())) return;
         if (!TunierServer.getInstance().getGameManager().isGameActive()) return;
         if (e.getBlock().getType() == Material.SNOW_BLOCK) {
@@ -192,7 +194,7 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
         super.stop();
         activePlayers.clear();
         data.clear();
-        startGameFlow("spleeffallingblocks");
+        //startGameFlow("spleeffallingblocks");
     }
 
 }

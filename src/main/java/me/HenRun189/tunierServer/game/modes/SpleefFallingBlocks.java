@@ -251,7 +251,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         activePlayers.clear();
         data.clear();
         fallingBlocks.clear();
-        startGameFlow("spleefwindcharge");
+        //startGameFlow("spleefwindcharge");
     }
 
 }

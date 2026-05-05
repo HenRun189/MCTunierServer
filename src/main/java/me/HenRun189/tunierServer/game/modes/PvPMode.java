@@ -249,7 +249,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.5f);
         }
 
-        if (elapsedSeconds < 20) {
+        /*if (elapsedSeconds < 20) {
             for (UUID uuid : alivePlayers) {
                 Player p = Bukkit.getPlayer(uuid);
                 Location loc = spawnLocations.get(uuid);
@@ -258,7 +258,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
                     p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
                 }
             }
-        }
+        }*/
 
         long now = System.currentTimeMillis();
         for (Iterator<Map.Entry<UUID, Long>> it = disconnectedAt.entrySet().iterator(); it.hasNext();) {
