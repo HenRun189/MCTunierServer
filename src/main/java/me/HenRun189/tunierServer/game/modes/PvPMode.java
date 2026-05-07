@@ -22,11 +22,14 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 import java.util.*;
+import java.util.Random;
 
 public class PvPMode extends AbstractGameMode implements Listener {
 
     private final ScoreManager scoreManager;
     private final Set<UUID> alivePlayers = new HashSet<>();
+
+    private final Location centerLoc = new Location() // noch welt und coords reinschreiben
 
     // ── Kill/Death-Tracking ────────────────────────────────────────
     private final Map<UUID, Integer> killCount  = new HashMap<>();
@@ -50,6 +53,30 @@ public class PvPMode extends AbstractGameMode implements Listener {
             {32, 67, 10},
             {38, 67, 20}
     };
+
+    private static final int[][] chestPos = {
+            {38, 67, 32},
+            {32, 67, 42},
+            {22, 67, 48},
+            {10, 67, 48},
+            {0,  67, 42},
+            {-5, 67, 32},
+            {-5, 67, 20},
+            {0,  67,  10},
+            {10, 67,  4},
+            {22, 67,  4},
+            {32, 67, 10},
+            {38, 67, 20}
+    };
+
+    private final ItemChestLoot[] possibleChestLoot = {
+
+    }
+
+    private final double extraDistAdd; // noch setzten !!!!
+    private final double smoothDistributionAbsolute; // noch setzten und mindestens über 0
+    private final double smoothDistributionRoot; // noch setzten und mindestens über 0
+    private final double avrgLootAmount;
 
     // ── Welt & Border ──────────────────────────────────────────────
     private World world;
@@ -115,6 +142,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
         elapsedSeconds = 0;
         phase1Started  = false;
         phase2Started  = false;
+
 
         // Team-Kill-Counter initialisieren
         for (TeamData t : teamManager.getTeams().values()) {
@@ -188,6 +216,90 @@ public class PvPMode extends AbstractGameMode implements Listener {
         if (soloTestMode)  Bukkit.broadcast(Component.text("    §c[Solo-Testmodus aktiv]"));
         if (friendlyFire)  Bukkit.broadcast(Component.text("    §c[Friendly Fire aktiviert]"));
         Bukkit.broadcast(Component.text("§8§m════════════════════════════════"));
+
+        //
+
+        ArrayList<Location> chestLocations = new ArrayList<>();
+
+        Location nloc1 = new Location(world, 245,35,-203);
+        Location nloc2 = new Location(world, -214,135,255);
+
+        int smallX = (int) Math.floor(Math.min(nloc1.getX(), nloc2.getX()));
+        int bigX = (int) Math.floor(Math.max(nloc1.getX(), nloc2.getX()));
+
+        int smallY = (int) Math.floor(Math.min(nloc1.getY(), nloc2.getY()));
+        int bigY = (int) Math.floor(Math.max(nloc1.getY(), nloc2.getY()));
+
+        int smallZ = (int) Math.floor(Math.min(nloc1.getZ(), nloc2.getZ()));
+        int bigZ = (int) Math.floor(Math.max(nloc1.getZ(), nloc2.getZ()));
+
+        for (int x = smallX; x <= bigX; x++) {
+            for (int y = smallY; y <= bigY; y++) {
+                for (int z = smallZ; z <= bigZ; z++) {
+                    if (world.getBlockAt(x,y,z).getType == Material.CHEST); {
+                        chestLocations.add(new Location(world, x,y,z));
+                    }
+                }
+            }
+        }
+
+
+
+        /*
+
+        for (int i = 0; i < chestPos.length) {
+
+            double dist = centerLoc.distance(new Location(world, chestPos[i][0], chestPos[i][1], chestPos[i][2]);
+
+            double lootValue = dist + extraDistAdd;
+            double leftLootValue = lootValue;
+
+            ArrayList<ItemChestLoot> allowedChestLoot = new ArrayList<>();
+
+            Chest chest = (Chest) block.getState();
+            Inventory inventory = chest.getInventory();
+
+
+            while (true) {
+
+                ArrayList<double> probabilityValues = new ArrayList<>();
+
+                double probabilitySum = 0;
+
+                for (int j = 0; j < possibleChestLoot.length; j++) {
+                    if (possibleChestLoot[j] <= lootValue) {
+                        ItemChestLoot icl = new ItemChestLoot(possibleChestLoot.get(j).item, possibleChestLoot[j].value);
+                        allowedChestLoot.add(icl);
+
+                        double probability = icl.getLootValueOnDist(lootValue / avrgLootAmount);
+                        probabilityValues.add(probability);
+                        probabilitySum += probability;
+                    }
+                }
+
+                Random r = new Random();
+                double selectedItem = r.nextDouble() * probabilitySum;
+                double probabilityCounter = 0;
+                for (int j = 0; probabilityCounter < probabilitySum; j++) {
+                    if ((probabilityCounter + probabilityValues.get(j)) > selectedItem) {
+
+                        inventory.addItem(allowedChestLoot.get(j).item);
+                        leftLootValue -= allowedChestLoot.get(j).value;
+                        break;
+                    }
+                    else {
+                        probabilityCounter += probabilityValues.get(j);
+                    }
+                }
+
+                if (leftLootValue <= 0) {
+                    break;
+                }
+            }
+
+            chest.update();
+        }
+        */
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -522,6 +634,29 @@ public class PvPMode extends AbstractGameMode implements Listener {
         }
     }
 
+
+
+
+
+    public class ItemChestLoot {
+        ItemStack item;
+        int value;
+
+        public ItemChestLoot(ItemStack arg_item, arg_value) {
+            item = arg_item;
+            value = arg_value;
+        }
+
+        public double getLootValueOnDist(double lootValue) {
+            return 1 / (expn((abs(lootValue - value) + smoothDistributionAbsolute), 1 / smoothDistributionRoot));
+        }
+
+    }
+
+
+
+
+
     // ══════════════════════════════════════════════════════════════
     //  EVENTS
     // ══════════════════════════════════════════════════════════════
@@ -665,5 +800,10 @@ public class PvPMode extends AbstractGameMode implements Listener {
                 && deadTeam.getName().equals(attackerTeam.getName())) {
             e.setCancelled(true);
         }
+    }
+
+    public double expn(double base, double exponent) {
+        if (base <= 0) return 0; // ← Guard
+        return Math.exp(exponent * Math.log(base));
     }
 }
