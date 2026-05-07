@@ -44,3 +44,6 @@ commands:
     usage: /gameinfo <mode>
   statsgui:
     description: Öffnet die Turnier GUI
+  cast:
+    description: Cast-Mitglied GUI und Verwaltung
+    usage: /cast [add|remove|list] [Spieler]

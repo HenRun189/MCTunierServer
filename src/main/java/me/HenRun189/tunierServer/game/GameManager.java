@@ -188,7 +188,7 @@ public class GameManager implements Listener {
     }
     public boolean isFrozen(Player p)    { return frozenPlayers.contains(p.getUniqueId()); }
     public void freezeAll()              { Bukkit.getOnlinePlayers().forEach(this::freezePlayer); }
-    public void unfreezeAll()            { frozenPlayers.clear(); }
+    public void unfreezeAll()            { frozenPlayers.clear(); frozenHealth.clear(); frozenHunger.clear(); }
     public Set<UUID> getFrozenPlayers()  { return frozenPlayers; }
 
     // ══════════════════════════════════════════════════════════════

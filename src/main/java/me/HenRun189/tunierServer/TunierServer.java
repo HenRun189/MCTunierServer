@@ -1,5 +1,7 @@
 package me.HenRun189.tunierServer;
 
+import me.HenRun189.tunierServer.cast.CastGUI;
+import me.HenRun189.tunierServer.cast.CastManager;
 import me.HenRun189.tunierServer.game.GameManager;
 import me.HenRun189.tunierServer.team.TeamManager;
 import me.HenRun189.tunierServer.score.ScoreManager;
@@ -44,6 +46,8 @@ public class TunierServer extends JavaPlugin implements Listener {
     private ScoreManager scoreManager;
     private AchievementManager achievementManager;
     private BackpackManager backpackManager;
+    private CastManager castManager;
+    private CastGUI castGUI;
 
     @Override
     public void onEnable() {
@@ -73,6 +77,9 @@ public class TunierServer extends JavaPlugin implements Listener {
 
         gameManager = new GameManager(teamManager, scoreManager, achievementManager, backpackManager);
 
+        castManager = new CastManager(scoreManager);
+        castGUI     = new CastGUI(castManager, gameManager, teamManager);
+
         VisibilityToggleItem.init(); // initialises the PersistentDataContainer key
 
         // Final update
@@ -90,6 +97,7 @@ public class TunierServer extends JavaPlugin implements Listener {
         registerCommand("allowmove", new AllowMoveCommand(gameManager));
         registerCommand("gameinfo", new GameInfoCommand());
         registerCommand("statsgui", new StatsGUICommand(scoreManager, teamManager));
+        registerCommand("cast", new CastCommand(castManager, castGUI));
 
         registerCommand("bp", new BackpackCommand(backpackManager, teamManager, gameManager));
         registerCommand("backpack", new BackpackCommand(backpackManager, teamManager, gameManager));
@@ -103,6 +111,7 @@ public class TunierServer extends JavaPlugin implements Listener {
         getCommand("gameinfo").setTabCompleter(new GameInfoCommand());
         Bukkit.getPluginManager().registerEvents(gameManager, this);
         getServer().getPluginManager().registerEvents(new GUIListener(), this);
+        getServer().getPluginManager().registerEvents(castGUI, this);
 
         getLogger().info("TunierServer gestartet!");
     }
@@ -130,6 +139,7 @@ public class TunierServer extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        if (castManager != null) castManager.cleanup();
         if (teamManager != null) {
             teamManager.saveTeams();
         }
@@ -155,7 +165,7 @@ public class TunierServer extends JavaPlugin implements Listener {
             scoreManager.applyToPlayer(p);
             teamManager.applyTeamToPlayer(p);
 
-            // 🔥 LOBBY SETTINGS (HIER REIN!)
+            // LOBBY SETTINGS (HIER REIN!)
             if (p.getWorld().getName().equalsIgnoreCase("lobby")) {
                 p.setGameMode(GameMode.ADVENTURE);
                 p.setAllowFlight(false);

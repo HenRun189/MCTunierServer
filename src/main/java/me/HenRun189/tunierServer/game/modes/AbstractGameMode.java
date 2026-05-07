@@ -70,7 +70,7 @@ public abstract class AbstractGameMode implements GameMode {
                 // ── Jede Sekunde ───────────────────────────────────
                 secondTick++;
                 if (secondTick >= 20) {
-                    secondTick = 0;
+
 
                     onSecond();
                     updateActionbar();
