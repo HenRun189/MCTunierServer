@@ -7,11 +7,16 @@ import me.HenRun189.tunierServer.score.ScoreManager;
 
 import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.util.Vector;
 import org.bukkit.event.block.BlockBreakEvent;
 
@@ -21,6 +26,9 @@ import java.util.*;
 
 
 public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
+
+    private static final String MODE_DISPLAY_NAME = "§b§lSpleef Falling Blocks";
+    private static final String NEXT_MODE = "spleefwindcharge";
 
     private World world = Bukkit.getWorld("windchargeworld");
 
@@ -49,9 +57,14 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     private List<UUID> eliminationOrder = new ArrayList<>();
     private Map<UUID, Integer> pointsThisGame = new HashMap<>();
 
+    // BossBar + Timer
+    private BossBar bossBar;
+    private long gameStartTickMillis = 0;
+    private boolean gameRunning = false;
+
 
     public SpleefFallingBlocks(TeamManager arg_teamManager, ScoreManager arg_scoreManager) {
-        super(-1, arg_teamManager); // kein Zeitlimit
+        super(-1, arg_teamManager);
         teamManager = arg_teamManager;
         scoreManager = arg_scoreManager;
     }
@@ -71,6 +84,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
                 p.setInvulnerable(true);
                 p.setHealth(20.0);
                 p.setFoodLevel(20);
+                p.getInventory().clear();
             }
         }
 
@@ -99,6 +113,13 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         eliminationsCount = 0;
         eliminationOrder.clear();
         pointsThisGame.clear();
+        gameStartTickMillis = System.currentTimeMillis();
+        gameRunning = true;
+
+        bossBar = Bukkit.createBossBar(MODE_DISPLAY_NAME + " §7- §e00:00", BarColor.YELLOW, BarStyle.SOLID);
+        bossBar.setProgress(1.0);
+
+        Component tabHeader = Component.text(MODE_DISPLAY_NAME);
 
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
@@ -107,6 +128,13 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
             Location drop = p.getLocation().clone().subtract(0, 5, 0);
             p.teleport(drop);
             p.setVelocity(new Vector(0, 0, 0));
+            p.setGameMode(GameMode.SURVIVAL);
+            p.setInvulnerable(true);
+
+            bossBar.addPlayer(p);
+            p.sendTitle(MODE_DISPLAY_NAME, "§7Bleib in Bewegung!", 10, 60, 20);
+            p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+            p.sendPlayerListHeaderAndFooter(tabHeader, Component.text("§7Modus läuft..."));
         }
     }
 
@@ -130,7 +158,14 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     @Override
     protected void onGameTick() {
 
-        // Disqualify-Höhe = unter dem letzten Layer
+        // BossBar Timer aktualisieren
+        if (bossBar != null && gameRunning) {
+            long elapsed = (System.currentTimeMillis() - gameStartTickMillis) / 1000;
+            long minutes = elapsed / 60;
+            long seconds = elapsed % 60;
+            bossBar.setTitle(MODE_DISPLAY_NAME + " §7- §e" + String.format("%02d:%02d", minutes, seconds));
+        }
+
         double disqualifyHight = loc1.getY() - higthDiffernce * layerAmount - 2;
 
         // Falling Blocks Tick
@@ -142,7 +177,6 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
         List<UUID> toDisqualify = new ArrayList<>();
 
-        // Layer-Check + Cheat-Detection
         for (UUID uuid : activePlayers) {
             Player player = data.get(uuid);
             if (player == null) continue;
@@ -183,14 +217,18 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
             disqualify(uuid);
         }
 
+        // Win-Check: nur noch 1 Team übrig?
+        if (checkTeamWin()) {
+            return;
+        }
+
         if (activePlayers.size() <= 1) {
-            // Letzter Überlebender bekommt 1. Platz Punkte
             if (activePlayers.size() == 1) {
                 UUID winner = activePlayers.get(0);
                 eliminationOrder.add(winner);
                 awardPoints(winner, 0);
             }
-            TunierServer.getInstance().getGameManager().stopGame();
+            endGame();
             return;
         }
 
@@ -220,9 +258,31 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         }
     }
 
+    private boolean checkTeamWin() {
+        if (activePlayers.size() <= 1) return false;
+
+        Set<String> remainingTeams = new HashSet<>();
+        for (UUID uuid : activePlayers) {
+            TeamData t = teamManager.getTeamByPlayer(uuid);
+            if (t != null) remainingTeams.add(t.getName());
+        }
+
+        if (remainingTeams.size() == 1) {
+            List<UUID> winnersCopy = new ArrayList<>(activePlayers);
+            for (UUID winner : winnersCopy) {
+                eliminationOrder.add(winner);
+                awardPoints(winner, 0);
+            }
+            activePlayers.clear();
+            endGame();
+            return true;
+        }
+        return false;
+    }
+
     @Override
     protected void updateActionbar() {
-        // Layer-Info wird direkt in onGameTick() per sendActionBar gesetzt
+        // Layer-Info wird direkt in onGameTick() gesetzt
     }
 
 
@@ -267,7 +327,8 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
 
     public void disqualify(UUID uuid) {
-        // Punkte vergeben basierend auf Reihenfolge
+        if (!activePlayers.contains(uuid)) return;
+
         int placeFromBottom = eliminationsCount;
         int placeFromTop = playersAtStart - 1 - placeFromBottom;
 
@@ -306,11 +367,10 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         }
     }
 
-
     private void broadcastRanking() {
         Bukkit.broadcast(Component.text(" "));
         Bukkit.broadcast(Component.text("§8§m-----------------------------"));
-        Bukkit.broadcast(Component.text("§b§lSpleef Falling Blocks §7- §6§lRanking"));
+        Bukkit.broadcast(Component.text(MODE_DISPLAY_NAME + " §7- §6§lRanking"));
         Bukkit.broadcast(Component.text(" "));
 
         int total = eliminationOrder.size();
@@ -348,6 +408,15 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         Bukkit.broadcast(Component.text(" "));
     }
 
+    private void endGame() {
+        gameRunning = false;
+        if (NEXT_MODE != null) {
+            TunierServer.getInstance().getGameManager().transitionToNextMode(NEXT_MODE);
+        } else {
+            TunierServer.getInstance().getGameManager().stopGame();
+        }
+    }
+
 
     @EventHandler
     public void onDamage(org.bukkit.event.entity.EntityDamageEvent e) {
@@ -370,6 +439,27 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         e.setCancelled(true);
     }
 
+    @EventHandler
+    public void onQuit(PlayerQuitEvent e) {
+        UUID uuid = e.getPlayer().getUniqueId();
+        if (activePlayers.contains(uuid)) {
+            disqualify(uuid);
+        }
+        if (bossBar != null) {
+            bossBar.removePlayer(e.getPlayer());
+        }
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent e) {
+        if (bossBar != null && gameRunning) {
+            bossBar.addPlayer(e.getPlayer());
+        }
+        if (eliminationOrder.contains(e.getPlayer().getUniqueId())) {
+            e.getPlayer().setGameMode(GameMode.SPECTATOR);
+        }
+    }
+
     @Override
     public List<TeamData> getRanking() {
         return new ArrayList<>(teamManager.getTeams().values());
@@ -387,6 +477,17 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
     @Override
     public void stop() {
+        gameRunning = false;
+
+        if (bossBar != null) {
+            bossBar.removeAll();
+            bossBar = null;
+        }
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
+        }
+
         broadcastRanking();
 
         super.stop();
@@ -397,10 +498,5 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
         fallingBlocks.clear();
         playerLayer.clear();
         fallTimer.clear();
-
-        // Direkt weiter zu SpleefWindCharge
-        Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
-            TunierServer.getInstance().getGameManager().startGameFlow("spleefwindcharge");
-        }, 1L);
     }
 }

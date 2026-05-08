@@ -9,6 +9,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -17,14 +19,20 @@ import java.util.UUID;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.TrapDoor;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
@@ -34,11 +42,10 @@ import net.kyori.adventure.text.Component;
 
 public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
-
-    private long startTime = 0;
+    private static final String MODE_DISPLAY_NAME = "§b§lSpleef Windcharge";
+    private static final String NEXT_MODE = null; // letzter Mode in der Kette
 
     private World world = Bukkit.getWorld("windchargeworld");
-
 
     private Location spawnLoc = new Location(world, -1, 128, 1);
     private Location loc1 = new Location(world, -14, 117, -16);
@@ -72,7 +79,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private final Random random = new Random();
 
     private ArrayList<degradingTrapdoor> nextLayerTrapdoors = new ArrayList<>();
-    private boolean nextLayerStarted = false;
 
     // Punktesystem
     private static final int[] PLACEMENT_POINTS = {30, 20, 15, 10, 6, 3, 1};
@@ -80,6 +86,11 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private int eliminationsCount = 0;
     private List<UUID> eliminationOrder = new ArrayList<>();
     private Map<UUID, Integer> pointsThisGame = new HashMap<>();
+
+    // BossBar + Timer
+    private BossBar bossBar;
+    private long gameStartTickMillis = 0;
+    private boolean gameRunning = false;
 
 
 
@@ -102,6 +113,7 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 p.setInvulnerable(true);
                 p.setHealth(20.0);
                 p.setFoodLevel(20);
+                p.getInventory().clear();
             }
         }
 
@@ -116,7 +128,6 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 world.getChunkAt(cx, cz).load(true);
             }
         }
-
 
         trapDoorArea = (Math.abs(loc1.getX() - loc2.getX()) + 1) * (Math.abs(loc1.getZ() - loc2.getZ()) + 1);
 
@@ -135,6 +146,15 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         eliminationsCount = 0;
         eliminationOrder.clear();
         pointsThisGame.clear();
+        gameStartTickMillis = System.currentTimeMillis();
+        gameRunning = true;
+
+        // BossBar erstellen
+        bossBar = Bukkit.createBossBar(MODE_DISPLAY_NAME + " §7- §e00:00", BarColor.BLUE, BarStyle.SOLID);
+        bossBar.setProgress(1.0);
+
+        // Tab-Liste header
+        Component tabHeader = Component.text(MODE_DISPLAY_NAME);
 
         for (UUID uuid : activePlayers) {
             Player p = data.get(uuid);
@@ -144,7 +164,19 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             p.teleport(drop);
 
             p.setVelocity(new Vector(0, 0, 0));
+            p.setGameMode(GameMode.SURVIVAL);
+            p.setInvulnerable(true);
             windchargeCooldown.put(uuid, 0);
+
+            // BossBar zeigen
+            bossBar.addPlayer(p);
+
+            // Title beim Start
+            p.sendTitle(MODE_DISPLAY_NAME, "§7Viel Glück!", 10, 60, 20);
+            p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+
+            // Tab-Header
+            p.sendPlayerListHeaderAndFooter(tabHeader, Component.text("§7Modus läuft..."));
         }
 
         TDLayers.add(new TrapdoorLayer(fillTrapDoorsArr(new ArrayList<>(), loc1.clone(), loc2.clone(), world), new ArrayList<>()));
@@ -154,6 +186,14 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
     @Override
     protected void onGameTick() {
+
+        // BossBar Timer aktualisieren
+        if (bossBar != null && gameRunning) {
+            long elapsed = (System.currentTimeMillis() - gameStartTickMillis) / 1000;
+            long minutes = elapsed / 60;
+            long seconds = elapsed % 60;
+            bossBar.setTitle(MODE_DISPLAY_NAME + " §7- §e" + String.format("%02d:%02d", minutes, seconds));
+        }
 
         List<UUID> toDisqualify = new ArrayList<>();
 
@@ -176,13 +216,18 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             disqualify(uuid);
         }
 
+        // Win-Check: nur noch 1 Team übrig?
+        if (checkTeamWin()) {
+            return;
+        }
+
         if (activePlayers.size() <= 1) {
             if (activePlayers.size() == 1) {
                 UUID winner = activePlayers.get(0);
                 eliminationOrder.add(winner);
                 awardPoints(winner, 0);
             }
-            TunierServer.getInstance().getGameManager().stopGame();
+            endGame();
             return;
         }
 
@@ -273,6 +318,33 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         }
     }
 
+    /**
+     * Prüft ob nur noch ein Team aktive Spieler hat.
+     * Wenn ja: alle Spieler dieses Teams bekommen Platz 1 / 30P, Spiel endet.
+     */
+    private boolean checkTeamWin() {
+        if (activePlayers.size() <= 1) return false; // wird vom anderen Check abgefangen
+
+        Set<String> remainingTeams = new HashSet<>();
+        for (UUID uuid : activePlayers) {
+            TeamData t = teamManager.getTeamByPlayer(uuid);
+            if (t != null) remainingTeams.add(t.getName());
+        }
+
+        if (remainingTeams.size() == 1) {
+            // Alle übrigen Spieler bekommen Platz 1
+            List<UUID> winnersCopy = new ArrayList<>(activePlayers);
+            for (UUID winner : winnersCopy) {
+                eliminationOrder.add(winner);
+                awardPoints(winner, 0); // 30P jeder
+            }
+            activePlayers.clear();
+            endGame();
+            return true;
+        }
+        return false;
+    }
+
 
     @Override
     protected void updateActionbar() {
@@ -291,6 +363,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
 
     public void disqualify(UUID uuid) {
+        if (!activePlayers.contains(uuid)) return;
+
         int placeFromBottom = eliminationsCount;
         int placeFromTop = playersAtStart - 1 - placeFromBottom;
 
@@ -331,11 +405,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     private void broadcastRanking() {
         Bukkit.broadcast(Component.text(" "));
         Bukkit.broadcast(Component.text("§8§m-----------------------------"));
-        Bukkit.broadcast(Component.text("§b§lSpleef Windcharge §7- §6§lRanking"));
+        Bukkit.broadcast(Component.text(MODE_DISPLAY_NAME + " §7- §6§lRanking"));
         Bukkit.broadcast(Component.text(" "));
 
-        // eliminationOrder: index 0 = erster raus = letzter Platz
-        // letzter Index = Sieger
         int total = eliminationOrder.size();
         for (int i = total - 1; i >= 0; i--) {
             UUID uuid = eliminationOrder.get(i);
@@ -369,6 +441,18 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
 
         Bukkit.broadcast(Component.text("§8§m-----------------------------"));
         Bukkit.broadcast(Component.text(" "));
+    }
+
+    /**
+     * Beendet Spiel und entscheidet: stopGame() oder nächsten Mode.
+     */
+    private void endGame() {
+        gameRunning = false;
+        if (NEXT_MODE != null) {
+            TunierServer.getInstance().getGameManager().transitionToNextMode(NEXT_MODE);
+        } else {
+            TunierServer.getInstance().getGameManager().stopGame();
+        }
     }
 
     public void fill(Location loc1, Location loc2, Material m) {
@@ -528,9 +612,49 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
         e.setCancelled(true);
     }
 
+    /**
+     * Disconnect = wie disqualify behandeln
+     */
+    @EventHandler
+    public void onQuit(PlayerQuitEvent e) {
+        UUID uuid = e.getPlayer().getUniqueId();
+        if (activePlayers.contains(uuid)) {
+            disqualify(uuid);
+        }
+        if (bossBar != null) {
+            bossBar.removePlayer(e.getPlayer());
+        }
+    }
+
+    /**
+     * Reconnect: BossBar neu zuweisen, aber nicht wieder ins Spiel
+     */
+    @EventHandler
+    public void onJoin(PlayerJoinEvent e) {
+        if (bossBar != null && gameRunning) {
+            bossBar.addPlayer(e.getPlayer());
+        }
+        // Spieler ist bereits raus → Spectator
+        if (eliminationOrder.contains(e.getPlayer().getUniqueId())) {
+            e.getPlayer().setGameMode(GameMode.SPECTATOR);
+        }
+    }
+
     @Override
     public void stop() {
-        // Ranking VOR super.stop() broadcasten
+        gameRunning = false;
+
+        // BossBar entfernen
+        if (bossBar != null) {
+            bossBar.removeAll();
+            bossBar = null;
+        }
+
+        // Tab-Header zurücksetzen
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
+        }
+
         broadcastRanking();
 
         super.stop();
