@@ -94,6 +94,8 @@ Gleichzeitig ist er klar auf weitere Modi und Regeln ausgelegt, weil neue Spielm
 - Konfigurationen wie Spielzeiten, Spawnpunkte und Punktewerte in Dateien auslagern.
 - Mehr Persistenz für Match-Ergebnisse und Saisons ergänzen.
 
+- !Gamemode Ideen
+  -Fangen (wie Hide and Seek (Hotpotato)) 
 ## Hinweise
 
 Das Projekt ist klar auf einen privaten oder halbprivaten Event-/Turnier-Server zugeschnitten und kombiniert Lobby-Steuerung, Teamplay und mehrere Minigame-Regelwerke in einem gemeinsamen Plugin.[1][4][2]
