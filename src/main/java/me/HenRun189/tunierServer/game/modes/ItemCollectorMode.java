@@ -3,6 +3,7 @@ package me.HenRun189.tunierServer.game.modes;
 import me.HenRun189.tunierServer.score.ScoreManager;
 import me.HenRun189.tunierServer.team.TeamManager;
 import me.HenRun189.tunierServer.TunierServer;
+import me.HenRun189.tunierServer.game.GameManager;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.*;
@@ -11,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.scoreboard.*;
+
 
 import me.HenRun189.tunierServer.team.TeamData;
 
@@ -28,8 +30,6 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
     private final Map<UUID, Integer> playerItemCount = new HashMap<>();
 
     private BossBar bossBar;
-    private Scoreboard scoreboard;
-    private Objective objective;
 
     public ItemCollectorMode(TeamManager teamManager, ScoreManager scoreManager) {
         super(1200, teamManager);
@@ -44,11 +44,9 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
 
         bossBar = Bukkit.createBossBar("Item Race", BarColor.BLUE, BarStyle.SOLID);
 
-        setupScoreboard();
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             bossBar.addPlayer(p);
-            p.setScoreboard(scoreboard);
         }
 
         Bukkit.getPluginManager().registerEvents(this, TunierServer.getInstance());
@@ -56,34 +54,6 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
         super.start();
     }
 
-    private void setupScoreboard() {
-        ScoreboardManager manager = Bukkit.getScoreboardManager();
-        scoreboard = manager.getNewScoreboard();
-        objective = scoreboard.registerNewObjective("itemrace", "dummy", "§bItem Race");
-        objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-        updateScoreboard();
-    }
-
-    private void updateScoreboard() {
-        if (objective == null) return;
-
-        for (String entry : scoreboard.getEntries()) {
-            scoreboard.resetScores(entry);
-        }
-
-        List<TeamData> teams = new ArrayList<>(teamManager.getTeams().values());
-        teams.sort((a, b) -> Integer.compare(
-                teamItems.getOrDefault(b.getName(), Collections.emptySet()).size(),
-                teamItems.getOrDefault(a.getName(), Collections.emptySet()).size()
-        ));
-
-        int line = teams.size();
-        for (TeamData team : teams) {
-            int collected = teamItems.getOrDefault(team.getName(), Collections.emptySet()).size();
-            String entry = "§e" + team.getName() + " §8| §a" + collected + " Items";
-            objective.getScore(entry).setScore(line--);
-        }
-    }
 
     @Override
     protected void onGameTick() {
@@ -98,7 +68,6 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
         String timeString = String.format("%02d:%02d", minutes, seconds);
         bossBar.setTitle("§bItem Race §7| §e" + timeString);
         bossBar.setProgress(Math.max(0, (double) time / maxTime));
-        updateScoreboard();
     }
 
     @EventHandler
@@ -170,12 +139,6 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
             bossBar.removeAll();
         }
 
-        if (scoreboard != null) {
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                p.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
-            }
-        }
-
         teamItems.clear();
         playerItemCount.clear();
     }
@@ -183,7 +146,7 @@ public class ItemCollectorMode extends AbstractGameMode implements Listener {
     @Override
     protected void onGameStart() {
         for (Player p : Bukkit.getOnlinePlayers()) {
-            p.sendTitle("§bItem Race", "§7Sammle Items!", 10, 60, 10);
+            GameManager.showTitle(p, "§bItem Race", "§7Sammle Items!", 10, 60, 10);
         }
     }
 

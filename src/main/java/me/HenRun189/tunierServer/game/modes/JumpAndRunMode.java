@@ -28,6 +28,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerJoinEvent; // FIX: Rejoin
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
+import java.time.Duration;
 
 import org.bukkit.boss.BossBar;
 import org.bukkit.boss.BarColor;
@@ -39,7 +42,7 @@ import static java.lang.Math.abs;
 
 public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
-    private static final int TOTAL_CHECKPOINTS = 40;
+    private static final int TOTAL_CHECKPOINTS = 13;
 
     private final TeamManager teamManager;
     private final ScoreManager scoreManager;
@@ -64,9 +67,10 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
     private final Map<UUID, BukkitRunnable> cooldownTasks = new HashMap<>();
     private final HashMap<UUID, Integer> rankings = new HashMap<>();
     private final Map<UUID, Long> finishTimes = new HashMap<>();
-
-
     private int activePlayerAmount = 0;
+
+
+    private final Set<UUID> activePlayers = new HashSet<>();
     private boolean registered = false;
     private boolean timeExpired = false;
     private BossBar timerBar;
@@ -74,8 +78,16 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
     private boolean stopping = false;
 
     // Zum Testen 2 Min, normal: 20 * 60 * 1000L
-    private static final long GAME_DURATION_MS = 2 * 60 * 1000L;
+    private static final long GAME_DURATION_MS = 20 * 60 * 1000L;
 
+
+    private java.util.function.Function<Player, Integer> jnrPlaceSupplier = null;
+    private java.util.function.Function<Player, Integer> jnrCheckpointSupplier = null;
+    private java.util.function.Function<Player, Integer> jnrFallsSupplier = null;
+    private java.util.function.Function<Player, String> jnrTimeSupplier = null;
+    private java.util.function.Function<Player, String> jnrStatusSupplier = null;
+    private java.util.function.Function<Player, Integer> jnrTotalPlayersSupplier = null;
+    private java.util.function.Function<Player, Integer> jnrTotalCheckpointsSupplier = null;
 
     // ─────────────────────────────────────────────
     // Helpers
@@ -93,7 +105,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
         ItemStack blazeRod = new ItemStack(Material.BLAZE_ROD);
         ItemMeta meta = blazeRod.getItemMeta();
-        meta.setDisplayName("§cZum Checkpoint teleportieren");
+        meta.displayName(Component.text("Zum Checkpoint teleportieren", net.kyori.adventure.text.format.TextColor.color(0xFF5555)));
         blazeRod.setItemMeta(meta);
         p.getInventory().setItem(0, blazeRod);
 
@@ -149,7 +161,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         gameStarted = false;
         lastUse.clear();
         cooldownTasks.clear();
-        activePlayerAmount = 0;
+        activePlayers.clear();
 
         for (TeamData team : teamManager.getTeams().values()) {
             for (UUID uuid : team.getPlayers()) {
@@ -206,7 +218,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
     @Override
     protected void onGameTick() {
 
-        boolean allFinished = activePlayerAmount > 0 && rankings.size() >= activePlayerAmount;
+        boolean allFinished = !activePlayers.isEmpty() && rankings.size() >= activePlayers.size();
         boolean timeAndOne = timeExpired && rankings.size() >= 1;
 
         if (!stopping && (allFinished || timeAndOne)) {
@@ -243,7 +255,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
             int place = getPlayerPlace(p);
             p.sendActionBar(Component.text(
-                    "§7Platz §e#" + place + "§7/§e" + activePlayerAmount +
+                    "§7Platz §e#" + place + "§7/§e" + activePlayers.size() +
                             " §8| §7CP §e" + pd.getCheckpoint() + "§7/§e" + TOTAL_CHECKPOINTS +
                             " §8| §cFalls: " + pd.getFalls()
             ));
@@ -445,10 +457,10 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
             PlayerData fresh = new PlayerData(p.getUniqueId());
             if (gameStarted) fresh.startTimer();
             data.put(p.getUniqueId(), fresh);
-            activePlayerAmount++;
+            activePlayers.add(p.getUniqueId());
         } else if (data.get(p.getUniqueId()).isDisconnected()) {
             data.get(p.getUniqueId()).setDisconnected(false);
-            activePlayerAmount++;
+            activePlayers.add(p.getUniqueId());
         }
 
         giveGameItems(p);
@@ -490,23 +502,23 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
 
         String timeStr = formatTime(time);
 
-        p.sendTitle(
-                "§a✔ Ziel erreicht",
-                "§7Platz §e#" + place + " §8| §a" + timeStr,
-                10, 50, 10
-        );
+        p.showTitle(Title.title(
+                LegacyComponentSerializer.legacySection().deserialize("§a✔ Ziel erreicht"),
+                LegacyComponentSerializer.legacySection().deserialize("§7Platz §e#" + place + " §8| §a" + timeStr),
+                Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(2500), Duration.ofMillis(500))
+        ));
         p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
 
         TeamData team = teamManager.getTeamByPlayer(p.getUniqueId());
         if (team != null) {
             switch (place) {
                 case 1 -> {
-                    scoreManager.addPoints(team.getName(), 40);
+                    scoreManager.addPoints(team.getName(), 30);
                     // FIX: Zeit im Chat anzeigen
                     Bukkit.broadcastMessage("§6🏆 §e" + p.getName() + " §7hat das Ziel als §c§l1. §7erreicht! §8| §a" + timeStr);
                 }
                 case 2 -> {
-                    scoreManager.addPoints(team.getName(), 25);
+                    scoreManager.addPoints(team.getName(), 20);
                     Bukkit.broadcastMessage("§e" + p.getName() + " §7hat das Ziel als §c§l2. §7erreicht! §8| §a" + timeStr);
                 }
                 case 3 -> {
@@ -684,7 +696,7 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
         UUID uuid = e.getPlayer().getUniqueId();
 
         if (data.containsKey(uuid) && !rankings.containsKey(uuid)) {
-            activePlayerAmount--;
+            activePlayers.remove(uuid);
             data.get(uuid).setDisconnected(true); // NEU
         }
 
@@ -854,4 +866,6 @@ public class JumpAndRunMode extends AbstractGameMode implements Listener {
             e.getPlayer().sendActionBar(Component.text("§cIm Jump & Run nicht verfügbar!"));
         }
     }
+
+
 }

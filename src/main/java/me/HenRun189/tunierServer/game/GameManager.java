@@ -26,10 +26,30 @@ import org.bukkit.Location;
 import org.bukkit.event.player.PlayerMoveEvent;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.title.Title;
+import java.time.Duration;
 
 import java.util.*;
 
 public class GameManager implements Listener {
+
+    /**
+     * Ersatz für das deprecated Player#sendTitle(String, String, int, int, int).
+     * Zeigt einen Title mit Legacy-§-Farbcodes (Fade in/stay/fade out in Ticks).
+     */
+    public static void showTitle(Player p, String legacyTitle, String legacySubtitle, int fadeInTicks, int stayTicks, int fadeOutTicks) {
+        var legacy = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacySection();
+        p.showTitle(Title.title(
+                legacy.deserialize(legacyTitle),
+                legacy.deserialize(legacySubtitle),
+                Title.Times.times(
+                        Duration.ofMillis(fadeInTicks * 50L),
+                        Duration.ofMillis(stayTicks * 50L),
+                        Duration.ofMillis(fadeOutTicks * 50L)
+                )
+        ));
+    }
+
     private GameMode currentMode;
 
     private final TeamManager teamManager;
@@ -41,7 +61,7 @@ public class GameManager implements Listener {
     private long currentSeed;
     private boolean gameActive = false;
     private boolean countdownRunning = false;
-    private boolean devMode = true;
+    private boolean devMode = false;
 
     private static final int JR_MIN_X = -2;
     private static final int JR_MAX_X = 3;
@@ -94,7 +114,7 @@ public class GameManager implements Listener {
             // Countdown-Sound: 3-2-1
             for (Player p : Bukkit.getOnlinePlayers()) {
                 p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.8f);
-                p.sendTitle("§6Zurück zur Lobby", "§7Teleport in 3...", 5, 40, 5);
+                showTitle(p, "§6Zurück zur Lobby", "§7Teleport in 3...", 5, 40, 5);
             }
 
             Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
@@ -337,6 +357,22 @@ public class GameManager implements Listener {
                 currentMode = new ItemCollectorMode(teamManager, scoreManager);
                 scoreManager.setCurrentGame("Item Collector");
             }
+            case "hideandseek" -> {
+                currentMode = new HideAndSeekMode(teamManager, scoreManager);
+                scoreManager.setCurrentGame("Hide and Seek");
+                backpackManager.clearAll();
+                scoreManager.resetGame();
+                scoreManager.setupScoreboard();
+                resetAllPlayers();
+                clearAllInventories();
+                clearDroppedItemsInGameWorlds();
+                startLobbyCountdown(lower);
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    scoreManager.applyToPlayer(p);
+                    teamManager.applyTeamToPlayer(p);
+                }
+                return;
+            }
             default -> {
                 Bukkit.broadcast(Component.text("§cUnbekannter Modus!"));
                 return;
@@ -369,6 +405,7 @@ public class GameManager implements Listener {
             case "spleeffallingblocks" -> "Spleef Falling Blocks";
             case "spleefshovel" -> "Spleef Shovel";
             case "itemcollector"       -> "Item Collector";
+            case "hideandseek" -> "Hide and Seek";
             default                    -> mode;
         };
 
@@ -392,7 +429,7 @@ public class GameManager implements Listener {
                     Bukkit.broadcast(Component.text("§7Spiel §e" + displayName + " §7startet in §a2 Minuten!"));
                     for (Player p : Bukkit.getOnlinePlayers()) {
                         p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 0.8f);
-                        p.sendTitle("§6" + displayName, "§7Start in 2 Minuten", 10, 60, 10);
+                        showTitle(p, "§6" + displayName, "§7Start in 2 Minuten", 10, 60, 10);
                     }
                     sendGameInfo(mode);
                 }
@@ -403,7 +440,7 @@ public class GameManager implements Listener {
                 }
                 if (time == 10) {
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        p.sendTitle("§cTeleport", "§e10 Sekunden", 5, 40, 5);
+                        showTitle(p, "§cTeleport", "§e10 Sekunden", 5, 40, 5);
                         p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1f, 1.3f);
                     }
                 }
@@ -427,6 +464,11 @@ public class GameManager implements Listener {
                     // Fix 1: PvP → erst in pvp_map TP (Wartepunkt), DANN 15sek Countdown
                     if (currentMode instanceof PvPMode) {
                         teleportAllToPvpWaitSpot();
+                        return;
+                    }
+
+                    if (currentMode instanceof HideAndSeekMode) {
+                        teleportAllToHideAndSeek();
                         return;
                     }
 
@@ -485,6 +527,34 @@ public class GameManager implements Listener {
         Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), this::startGameCountdown, 20L);
     }
 
+    private void teleportAllToHideAndSeek() {
+        World world = HideAndSeekMode.resolveWorld();
+        if (world == null) {
+            Bukkit.broadcast(Component.text("§cHide-and-Seek Welt nicht gefunden! Lege eine Welt §ehideandseek §coder §epvp_map §can."));
+            return;
+        }
+
+        Location spawn = world.getSpawnLocation();
+        int chunkX = spawn.getBlockX() >> 4;
+        int chunkZ = spawn.getBlockZ() >> 4;
+        for (int x = -4; x <= 4; x++) {
+            for (int z = -4; z <= 4; z++) {
+                world.getChunkAt(chunkX + x, chunkZ + z).load(true);
+            }
+        }
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.teleport(spawn);
+            p.setGameMode(org.bukkit.GameMode.ADVENTURE);
+            p.setInvulnerable(true);
+            p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 1f);
+        }
+        freezeAll();
+
+        Bukkit.broadcast(Component.text("§6§lHide and Seek §8| §7Alle auf der Map – Countdown läuft!"));
+        Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), this::startGameCountdown, 20L);
+    }
+
     // ══════════════════════════════════════════════════════════════
     //  WORLD PREPARE & TELEPORT
     // ══════════════════════════════════════════════════════════════
@@ -517,7 +587,7 @@ public class GameManager implements Listener {
         if (currentMode instanceof SpleefShovel) {
             World world = Bukkit.getWorld("windchargeworld");
             if (world == null) { Bukkit.broadcast(Component.text("§cWindcharge Welt nicht gefunden!")); return; }
-            for (Player p : Bukkit.getOnlinePlayers()) p.teleport(new Location(world, 0, 128, -39, 0f, 0f)); //Noch ändern
+            for (Player p : Bukkit.getOnlinePlayers()) p.teleport(new Location(world, 0, 128, -46, 0f, 0f)); //Noch ändern
             startGameCountdown();
             return;
         }
@@ -556,7 +626,7 @@ public class GameManager implements Listener {
                 int time = 15;
                 @Override public void run() {
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+                        showTitle(p, "§2" + time, "§8Spiel startet...", 0, 20, 0);
                         if (time <= 10 && time > 0) p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
                         if (time == 0)              p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
                     }
@@ -578,7 +648,7 @@ public class GameManager implements Listener {
                 int time = 15;
                 @Override public void run() {
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+                        showTitle(p, "§2" + time, "§8Spiel startet...", 0, 20, 0);
                         if (time <= 10 && time > 0) p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
                         if (time == 0)              p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
                     }
@@ -600,7 +670,7 @@ public class GameManager implements Listener {
                 int time = 15;
                 @Override public void run() {
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+                        showTitle(p, "§2" + time, "§8Spiel startet...", 0, 20, 0);
                         if (time <= 10 && time > 0) p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
                         if (time == 0)              p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
                     }
@@ -622,7 +692,7 @@ public class GameManager implements Listener {
                 int time = 15;
                 @Override public void run() {
                     for (Player p : Bukkit.getOnlinePlayers()) {
-                        p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+                        showTitle(p, "§2" + time, "§8Spiel startet...", 0, 20, 0);
                         if (time <= 10 && time > 0) p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f);
                         if (time == 0)              p.playSound(p.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
                     }
@@ -640,7 +710,7 @@ public class GameManager implements Listener {
                 if (time == 15) freezeAll();
 
                 for (Player p : Bukkit.getOnlinePlayers()) {
-                    p.sendTitle("§2" + time, "§8Spiel startet...", 0, 20, 0);
+                    showTitle(p, "§2" + time, "§8Spiel startet...", 0, 20, 0);
                     // Fix 4: Tick-Sound jeden Sek im Countdown
                     if (time <= 10 && time > 0)
                         p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1f + (0.05f * (10 - time)));
@@ -718,6 +788,7 @@ public class GameManager implements Listener {
     private void prepareWorldsAsync() {
         if (currentMode instanceof JumpAndRunMode) return;
         if (currentMode instanceof PvPMode) return;
+        if (currentMode instanceof HideAndSeekMode) return;
         preparedWorlds.clear();
 
         List<TeamData> teams = new ArrayList<>(teamManager.getTeams().values());
@@ -787,8 +858,112 @@ public class GameManager implements Listener {
                 Bukkit.broadcast(Component.text("§7➤ Nutze §fWindcharges §7um Gegner runterzuschießen"));
                 Bukkit.broadcast(Component.text("§8§m-----------------------------"));
             }
+            case "spleeffallingblocks" -> {
+                Bukkit.broadcast(Component.text(" "));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                Bukkit.broadcast(Component.text("§b§lSpleef Falling Blocks"));
+                Bukkit.broadcast(Component.text("§7➤ Blöcke fallen weg, sobald du drauftrittst"));
+                Bukkit.broadcast(Component.text("§7➤ Bleib in Bewegung um nicht runterzufallen"));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+            }
+            case "spleefshovel" -> {
+                Bukkit.broadcast(Component.text(" "));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                Bukkit.broadcast(Component.text("§b§lSpleef Shovel"));
+                Bukkit.broadcast(Component.text("§7➤ Schaufle Schneeblöcke unter Gegnern weg"));
+                Bukkit.broadcast(Component.text("§7➤ Layer verschwinden mit der Zeit"));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+            }
+            case "hideandseek" -> {
+                Bukkit.broadcast(Component.text(" "));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                Bukkit.broadcast(Component.text("§6§lHide and Seek"));
+                Bukkit.broadcast(Component.text("§7➤ Ganze Teams sind Sucher oder Verstecker"));
+                Bukkit.broadcast(Component.text("§7➤ Funktioniert mit §e1 Spieler/Team §7und mit mehreren"));
+                Bukkit.broadcast(Component.text("§7➤ Verstecker haben §e45s §7Vorsprung"));
+                Bukkit.broadcast(Component.text("§7➤ Sucher: Schwert-Treffer = Fund (§a+10 Punkte§7)"));
+                Bukkit.broadcast(Component.text("§7➤ Kompass-Ortung per §eRechtsklick"));
+                Bukkit.broadcast(Component.text("§7➤ Überlebende Verstecker: §a+12 Punkte§7, volles Team: §a+8"));
+                Bukkit.broadcast(Component.text("§7➤ Nach §e10 Min §7gewinnen die Verstecker"));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+            }
         }
     }
 
     public boolean isGameActive() { return gameActive; }
+
+    // ══════════════════════════════════════════════════════════════
+    //  TRANSITION ZU NÄCHSTEM MODE — ohne Lobby-Reset
+    //  Wird von Spleef-Modi am Ende aufgerufen statt stopGame()FTT
+    // ══════════════════════════════════════════════════════════════
+
+    public void transitionToNextMode(String nextMode) {
+        if (currentMode == null) {
+            Bukkit.broadcast(Component.text("§cKein Spiel läuft!"));
+            return;
+        }
+
+        // Ranking aus altem Mode wird in dessen stop() schon broadcastet
+        currentMode.stop();
+        countdownRunning = false;
+        gameActive = false;
+        currentMode = null;
+
+        // Spieler komplett zurücksetzen: GameMode SURVIVAL, kein Spectator, keine Effekte
+        resetAllPlayers();
+        clearAllInventories();
+
+        // 3 Sek Pause, dann nächsten Mode starten
+        Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
+            startGameFlow(nextMode);
+        }, 60L);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+//  FINAL — Direkter Start ohne Lobby-Countdown
+//  Wird vom FinalCommand aufgerufen (mit den 2 Finalisten-Teams)
+//  In GameManager.java einfügen, z.B. nach transitionToNextMode()
+// ══════════════════════════════════════════════════════════════
+
+    public void startFinal(TeamData teamA, TeamData teamB) {
+        if (isGameRunning()) {
+            Bukkit.broadcast(Component.text("§cEs läuft bereits ein Spiel!"));
+            return;
+        }
+
+        currentSeed = new Random().nextLong();
+
+        FinalMode finalMode = new FinalMode(teamManager, scoreManager, teamA, teamB);
+        currentMode = finalMode;
+        scoreManager.setCurrentGame("FINALE");
+
+        backpackManager.clearAll();
+        scoreManager.resetGame();
+        scoreManager.setupScoreboard();
+        resetAllPlayers();
+        clearAllInventories();
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            scoreManager.applyToPlayer(p);
+            teamManager.applyTeamToPlayer(p);
+        }
+
+        // Finale-Hype Broadcast
+        Bukkit.broadcast(Component.text(" "));
+        Bukkit.broadcast(Component.text("§8§m═══════════════════════════════"));
+        Bukkit.broadcast(Component.text("       §6§l⚔ FINALE ⚔"));
+        Bukkit.broadcast(Component.text("  §e" + teamA.getName() + " §7vs §e" + teamB.getName()));
+        Bukkit.broadcast(Component.text("§7Wer den Drachen zuerst besiegt, gewinnt!"));
+        Bukkit.broadcast(Component.text("§8§m═══════════════════════════════"));
+
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+        }
+
+        // Kurzer 5-Sekunden Vorlauf, dann Mode startet (Welten generieren etc.)
+        Bukkit.getScheduler().runTaskLater(TunierServer.getInstance(), () -> {
+            gameActive = true;
+            currentMode.start();
+        }, 20L * 5);
+    }
 }

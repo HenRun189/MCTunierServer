@@ -1,7 +1,7 @@
 name: TunierServer
 version: '${version}'
 main: me.HenRun189.tunierServer.TunierServer
-api-version: 1.21
+api-version: '26.3'
 load: POSTWORLD
 
 commands:
@@ -47,3 +47,13 @@ commands:
   cast:
     description: Cast-Mitglied GUI und Verwaltung
     usage: /cast [add|remove|list] [Spieler]
+  final:
+    description: Startet das große Finale
+    usage: /final [<teamA> <teamB>]
+    permission: tunier.admin
+permissions:
+  tunier.admin:
+    default: op
+  tunier.caster:
+    description: Hauptcaster mit OP-Equipment im Spectator
+    default: false

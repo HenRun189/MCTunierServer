@@ -33,11 +33,11 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
 
     private World world = Bukkit.getWorld("windchargeworld");
 
-    private Location spawnLoc = new Location(world, 0, 128, -91);
+    private Location spawnLoc = new Location(world, 0, 128, -46);
     private double higthDiffernce = 7;
     private int layerAmount = 6;
-    private Location loc1 = new Location(world, 16, 118, -110);
-    private Location loc2 = new Location(world, -14, 118, -79);
+    private Location loc1 = new Location(world, 14, 118, -30);
+    private Location loc2 = new Location(world, -14, 118, -63);
 
     private TeamManager teamManager;
     private ScoreManager scoreManager;
@@ -46,7 +46,7 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
     private Map<UUID, Integer> playerLayer = new HashMap<>();
 
     private int layerDepletionStartTime = 30;
-    private int depletionPerSecond = 9;
+    private int depletionPerSecond = 18;
     private ArrayList<Location> fallingBlocks = new ArrayList<>();
     private int currentLayer = 0;
     private int layerTimer = 0;
@@ -82,6 +82,9 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
                 data.put(p.getUniqueId(), p);
                 activePlayers.add(p.getUniqueId());
                 playerLayer.put(p.getUniqueId(), 0);
+                p.setGameMode(GameMode.SURVIVAL);
+                p.setAllowFlight(false);
+                p.setFlying(false);
                 p.teleport(spawnLoc);
                 p.setInvulnerable(true);
                 p.setHealth(20.0);
@@ -133,16 +136,16 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
             p.setGameMode(GameMode.SURVIVAL);
             p.setInvulnerable(true);
 
-            ItemStack shovel = new ItemStack(Material.IRON_SHOVEL, 1);
+            ItemStack shovel = new ItemStack(Material.GOLDEN_SHOVEL, 1);
             ItemMeta meta = shovel.getItemMeta();
             if (meta != null) {
                 meta.setUnbreakable(true);
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.EFFICIENCY, 5, true);
                 shovel.setItemMeta(meta);
             }
             p.getInventory().addItem(shovel);
 
             bossBar.addPlayer(p);
-            p.sendTitle(MODE_DISPLAY_NAME, "§7Schaufel die Schneeblöcke!", 10, 60, 20);
             p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
             p.sendPlayerListHeaderAndFooter(tabHeader, Component.text("§7Modus läuft..."));
         }
@@ -174,7 +177,7 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
             if (p == null) continue;
 
             double yPos = p.getLocation().getY();
-            int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 0.5);
+            int currPlayerLayer = (int) ((loc1.getY() - yPos) / higthDiffernce + 1);
             playerLayer.put(uuid, currPlayerLayer);
 
             if (p.getGameMode() != GameMode.CREATIVE && p.getGameMode() != GameMode.SPECTATOR) {
@@ -257,8 +260,12 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
                 Location dloc = fallingBlocks.get(indexBlock);
                 dloc.getBlock().setType(Material.AIR);
                 fallingBlocks.remove(indexBlock);
+                Bukkit.getLogger().info("{x:"+ dloc.getX() + ",y:" + dloc.getY() + ",z:" + dloc.getZ() + "}");
             }
+
+            Bukkit.getLogger().info("|new Second passed|");
         }
+
         layerTimer++;
     }
 
@@ -287,6 +294,11 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
     @Override
     protected void updateActionbar() {
         // Layer-Info wird direkt in onGameTick() gesetzt
+    }
+
+    @Override
+    protected boolean skipDefaultEndTitle() {
+        return true; // eigenes Ranking via broadcastRanking()
     }
 
 
@@ -398,11 +410,23 @@ public class SpleefShovel extends AbstractGameMode implements Listener {
         }
     }
 
-
     @EventHandler
     public void onDamage(org.bukkit.event.entity.EntityDamageEvent e) {
         if (!(e.getEntity() instanceof Player p)) return;
         if (!activePlayers.contains(p.getUniqueId())) return;
+        if (!TunierServer.getInstance().getGameManager().isGameActive()) return;
+
+        org.bukkit.event.entity.EntityDamageEvent.DamageCause cause = e.getCause();
+
+        if (cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.LAVA
+                || cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.FIRE
+                || cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.FIRE_TICK
+                || cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.HOT_FLOOR) {
+            e.setCancelled(true);
+            disqualify(p.getUniqueId());
+            return;
+        }
+
         e.setCancelled(true);
     }
 

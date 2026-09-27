@@ -70,7 +70,7 @@ public abstract class AbstractGameMode implements GameMode {
                 // ── Jede Sekunde ───────────────────────────────────
                 secondTick++;
                 if (secondTick >= 20) {
-
+                    secondTick = 0;
 
                     onSecond();
                     updateActionbar();
@@ -95,12 +95,24 @@ public abstract class AbstractGameMode implements GameMode {
         }, 0L, 1L).getTaskId();
     }
 
+    /**
+     * Wenn true zurückgegeben wird, überspringt stop() den Standard-Endgame-Title
+     * und das Standard-Ranking-Broadcast. Modi mit eigenem Ranking sollten true zurückgeben.
+     */
+    protected boolean skipDefaultEndTitle() {
+        return false;
+    }
+
     @Override
     public void stop() {
 
         if (taskId != -1) {
             Bukkit.getScheduler().cancelTask(taskId);
             taskId = -1;
+        }
+
+        if (skipDefaultEndTitle()) {
+            return; // Modus zeigt eigenes Ranking
         }
 
         List<TeamData> ranking = getRanking();

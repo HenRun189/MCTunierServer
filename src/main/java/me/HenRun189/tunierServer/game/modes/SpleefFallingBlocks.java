@@ -80,6 +80,9 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
                 activePlayers.add(p.getUniqueId());
                 playerLayer.put(p.getUniqueId(), 0);
                 fallTimer.put(p.getUniqueId(), 0);
+                p.setGameMode(GameMode.SURVIVAL);
+                p.setAllowFlight(false);
+                p.setFlying(false);
                 p.teleport(spawnLoc);
                 p.setInvulnerable(true);
                 p.setHealth(20.0);
@@ -132,13 +135,13 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
             p.setInvulnerable(true);
 
             bossBar.addPlayer(p);
-            p.sendTitle(MODE_DISPLAY_NAME, "§7Bleib in Bewegung!", 10, 60, 20);
             p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
             p.sendPlayerListHeaderAndFooter(tabHeader, Component.text("§7Modus läuft..."));
         }
     }
 
 
+    /*
     @EventHandler
     public void onMove(PlayerMoveEvent e) {
         if (e.getTo() == null) return;
@@ -154,6 +157,7 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
             fallingBlocks.add(newFB);
         }
     }
+    */
 
     @Override
     protected void onGameTick() {
@@ -210,6 +214,18 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
 
             if (yPos < disqualifyHight) {
                 toDisqualify.add(uuid);
+            }
+        }
+
+        for (UUID uuid : activePlayers) {
+            Player player = data.get(uuid);
+            if (player == null) continue;
+            Location loc = player.getLocation();
+            Location bLoc = loc.clone().subtract(0, 0.6, 0);
+            Block block = bLoc.getBlock();
+            if (block.getType() == fallingBlockType) {
+                FallingBlock newFB = new FallingBlock(bLoc, fallTime);
+                fallingBlocks.add(newFB);
             }
         }
 
@@ -283,6 +299,11 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     @Override
     protected void updateActionbar() {
         // Layer-Info wird direkt in onGameTick() gesetzt
+    }
+
+    @Override
+    protected boolean skipDefaultEndTitle() {
+        return true; // eigenes Ranking via broadcastRanking()
     }
 
 
@@ -422,6 +443,19 @@ public class SpleefFallingBlocks extends AbstractGameMode implements Listener {
     public void onDamage(org.bukkit.event.entity.EntityDamageEvent e) {
         if (!(e.getEntity() instanceof Player p)) return;
         if (!activePlayers.contains(p.getUniqueId())) return;
+        if (!TunierServer.getInstance().getGameManager().isGameActive()) return;
+
+        org.bukkit.event.entity.EntityDamageEvent.DamageCause cause = e.getCause();
+
+        if (cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.LAVA
+                || cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.FIRE
+                || cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.FIRE_TICK
+                || cause == org.bukkit.event.entity.EntityDamageEvent.DamageCause.HOT_FLOOR) {
+            e.setCancelled(true);
+            disqualify(p.getUniqueId());
+            return;
+        }
+
         e.setCancelled(true);
     }
 

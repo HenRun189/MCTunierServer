@@ -112,6 +112,8 @@ public class CastGUI implements Listener {
                 "§7Items sammeln", "§eKlick zum Starten"));
         inv.setItem(16, item(Material.WRITABLE_BOOK, "§5§lAchievement Battle",
                 "§7Advancements", "§eKlick zum Starten"));
+        inv.setItem(22, item(Material.SPYGLASS, "§6§lHide and Seek",
+                "§7Verstecken & Suchen", "§7Teams: 1 oder mehrere Spieler", "§eKlick zum Starten"));
 
         inv.setItem(18, item(Material.ARROW, "§7◀ Zurück"));
 
@@ -293,6 +295,7 @@ public class CastGUI implements Listener {
             case 14 -> "spleefshovel";
             case 15 -> "itemcollector";
             case 16 -> "achievement";
+            case 22 -> "hideandseek";
             case 18 -> null; // Zurück
             default -> null;
         };

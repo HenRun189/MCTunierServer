@@ -168,7 +168,7 @@ public class AchievementMode extends AbstractGameMode implements Listener {
         String target = currentAdvancement.get(teamName);
         if (target == null || !done.equals(target)) return;
 
-        scoreManager.addPoints(teamName, 10);
+        scoreManager.addPoints(teamName, 15);
 
         // Pro-Spieler-Counter
         playerAdvCount.merge(p.getUniqueId(), 1, Integer::sum);

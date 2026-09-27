@@ -187,7 +187,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
                     shuffledSpawns.get(i % shuffledSpawns.size())[0],
                     shuffledSpawns.get(i % shuffledSpawns.size())[1],
                     shuffledSpawns.get(i % shuffledSpawns.size())[2]);
-            p.teleport(spawnLoc);
+            //p.teleport(spawnLoc);
             p.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
             spawnLocations.put(p.getUniqueId(), spawnLoc);
 
@@ -344,7 +344,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
         // Phase 1: 5min → Border schrumpft von 460 (R=230) auf 150 (R=75) über 600s (10min)
         if (!phase1Started && elapsedSeconds >= BORDER_PHASE1_START_SEC) {
             phase1Started = true;
-            border.changeSize(150, 600L); // 600 Sekunden = 10 Minuten
+            border.changeSize(100, 12000L); // 600 Sekunden = 10 Minuten
             Bukkit.broadcast(Component.text("§c§lDie Border verkleinert sich! §7(→ Radius 75 in 10 min)"));
             for (Player p : Bukkit.getOnlinePlayers())
                 p.playSound(p.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 1f, 0.5f);
@@ -353,7 +353,7 @@ public class PvPMode extends AbstractGameMode implements Listener {
         // Phase 2: 18min → Border schrumpft von 150 (R=75) auf 8 (R=4) über 120s (2min)
         if (!phase2Started && elapsedSeconds >= BORDER_PHASE2_START_SEC) {
             phase2Started = true;
-            border.changeSize(8, 120L); // 120 Sekunden = 2 Minuten
+            border.changeSize(6, 2400L); // 120 Sekunden = 2 Minuten
             Bukkit.broadcast(Component.text("§4§lACHTUNG! §cBorder → 4 Blöcke Radius! §7(fertig in 2 min)"));
             for (Player p : Bukkit.getOnlinePlayers())
                 p.playSound(p.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 0.8f);

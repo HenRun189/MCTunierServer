@@ -11,9 +11,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+
 import java.util.*;
 
 public class StatsGUICommand implements CommandExecutor {
+
+    private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacySection();
 
     private final ScoreManager scoreManager;
     private final TeamManager teamManager;
@@ -51,7 +56,7 @@ public class StatsGUICommand implements CommandExecutor {
             ItemStack itemStack = new ItemStack(Material.PLAYER_HEAD);
             ItemMeta meta = itemStack.getItemMeta();
 
-            meta.setDisplayName(team.getColor() + team.getName());
+            meta.displayName(LEGACY.deserialize(team.getColor() + team.getName()));
 
             List<String> lore = new ArrayList<>();
             lore.add("§7Achievement: §e" + ach);
@@ -62,7 +67,7 @@ public class StatsGUICommand implements CommandExecutor {
             lore.add("§8----------------");
             lore.add("§aTotal: §a" + total);
 
-            meta.setLore(lore);
+            meta.lore(lore.stream().map(LEGACY::deserialize).toList());
             itemStack.setItemMeta(meta);
 
             inv.setItem(slot, itemStack);

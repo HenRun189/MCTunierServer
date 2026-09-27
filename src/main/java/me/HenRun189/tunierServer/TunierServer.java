@@ -14,6 +14,7 @@ import me.HenRun189.tunierServer.listeners.LobbyListener;
 import me.HenRun189.tunierServer.listeners.GUIListener;
 import me.HenRun189.tunierServer.listeners.VisibilityToggleItem;
 
+import org.bukkit.command.TabCompleter;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.Listener;
@@ -112,6 +113,12 @@ public class TunierServer extends JavaPlugin implements Listener {
         Bukkit.getPluginManager().registerEvents(gameManager, this);
         getServer().getPluginManager().registerEvents(new GUIListener(), this);
         getServer().getPluginManager().registerEvents(castGUI, this);
+        getCommand("final").setExecutor(
+                new FinalCommand(teamManager, scoreManager)
+        );
+        getCommand("final").setTabCompleter(
+                (TabCompleter) getCommand("final").getExecutor()
+        );
 
         getLogger().info("TunierServer gestartet!");
     }
@@ -176,7 +183,7 @@ public class TunierServer extends JavaPlugin implements Listener {
             }
 
             // Nachrichten
-            p.sendMessage(Component.text("§6§lWillkommen auf dem Minecraft Turnier Server!"));
+            p.sendMessage(Component.text("§6§lWillkommen auf dem Turnier Server!"));
 
             Component twitch = Component.text("§5von HenRun189")
                     .clickEvent(ClickEvent.openUrl("https://twitch.tv/henrun189"))

@@ -75,6 +75,17 @@ public class GameInfoCommand implements CommandExecutor, TabCompleter{
                 Bukkit.broadcast(Component.text("§7➤ Jede Sekunde §7gibt's einen neuen Windcharge"));
                 Bukkit.broadcast(Component.text("§8§m-----------------------------"));
             }
+            case "hideandseek" -> {
+                Bukkit.broadcast(Component.text(" "));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+                Bukkit.broadcast(Component.text("§6§lHide and Seek"));
+                Bukkit.broadcast(Component.text("§7➤ Ganze Teams sind Sucher oder Verstecker"));
+                Bukkit.broadcast(Component.text("§7➤ 1 Spieler pro Team und mehrere Spieler gehen beides"));
+                Bukkit.broadcast(Component.text("§7➤ 45s Verstecken, dann jagen die Sucher"));
+                Bukkit.broadcast(Component.text("§7➤ Schwert-Treffer = gefunden (§a+10 Punkte§7)"));
+                Bukkit.broadcast(Component.text("§7➤ Überlebende Verstecker §a+12§7, ganzes Team §a+8"));
+                Bukkit.broadcast(Component.text("§8§m-----------------------------"));
+            }
             default -> sender.sendMessage("§cUnbekannter Modus!");
         }
 
@@ -85,7 +96,7 @@ public class GameInfoCommand implements CommandExecutor, TabCompleter{
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
 
         if (args.length == 1) {
-            List<String> list = Arrays.asList("achievement", "pvp", "jumpandrun", "itemcollector", "spleefwindcharge");
+            List<String> list = Arrays.asList("achievement", "pvp", "jumpandrun", "itemcollector", "spleefwindcharge", "hideandseek");
 
             List<String> result = new ArrayList<>();
 

@@ -109,6 +109,9 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
                 data.put(p.getUniqueId(), p);
                 activePlayers.add(p.getUniqueId());
                 playerLayer.put(p.getUniqueId(), 0);
+                p.setGameMode(GameMode.SURVIVAL);
+                p.setAllowFlight(false);
+                p.setFlying(false);
                 p.teleport(spawnLoc);
                 p.setInvulnerable(true);
                 p.setHealth(20.0);
@@ -168,11 +171,8 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
             p.setInvulnerable(true);
             windchargeCooldown.put(uuid, 0);
 
-            // BossBar zeigen
             bossBar.addPlayer(p);
 
-            // Title beim Start
-            p.sendTitle(MODE_DISPLAY_NAME, "§7Viel Glück!", 10, 60, 20);
             p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
 
             // Tab-Header
@@ -349,6 +349,11 @@ public class SpleefWindChargeMode extends AbstractGameMode implements Listener {
     @Override
     protected void updateActionbar() {
         // Layer-Info wird direkt in onGameTick() gesetzt
+    }
+
+    @Override
+    protected boolean skipDefaultEndTitle() {
+        return true; // eigenes Ranking via broadcastRanking()
     }
 
     @Override
